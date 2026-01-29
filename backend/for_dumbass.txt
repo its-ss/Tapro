@@ -1,0 +1,11 @@
+#setup environment
+#pip requirements
+
+
+python -m venv venv
+venv\Scripts\activate
+
+pip install firebase-admin
+pip install -r requirements.txt
+
+remind me to share firebase_key
