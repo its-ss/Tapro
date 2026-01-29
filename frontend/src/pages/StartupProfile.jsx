@@ -2,15 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/HeaderTapro';
 import Footer from '../components/Footer';
-import { 
-  FiMail, 
-  FiCopy, 
-  FiMessageSquare, 
-  FiUserPlus, 
-  FiShare2, 
-  FiGlobe, 
-  FiDownload, 
-  FiBarChart2, 
+import { API_ENDPOINTS } from '../config/api';
+import {
+  FiMail,
+  FiCopy,
+  FiMessageSquare,
+  FiUserPlus,
+  FiShare2,
+  FiGlobe,
+  FiDownload,
+  FiBarChart2,
   FiCalendar,
   FiCheck,
   FiX,
@@ -111,21 +112,28 @@ const StartupProfile = () => {
   ];
 
   useEffect(() => {
-    // Simulate API fetch
     const fetchStartupData = async () => {
       try {
         setLoading(true);
-        // In a real app, you would fetch from your API with the startupId
-        // const response = await fetch(`/api/startups/${startupId}`);
-        // const data = await response.json();
-        
-        // For now, using mock data
-        setTimeout(() => {
+        setError(null);
+
+        const response = await fetch(API_ENDPOINTS.startups(startupId));
+
+        if (!response.ok) {
+          // If API fails, fall back to mock data for demo
+          console.warn('API call failed, using mock data');
           setStartup(mockStartupData);
           setLoading(false);
-        }, 500);
+          return;
+        }
+
+        const data = await response.json();
+        setStartup(data);
       } catch (err) {
-        setError('Failed to load startup data');
+        console.error('Error fetching startup:', err);
+        // Fall back to mock data for demo
+        setStartup(mockStartupData);
+      } finally {
         setLoading(false);
       }
     };

@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/HeaderTapro';
 import Footer from '../components/Footer';
-import { 
-  FiMail, 
-  FiCopy, 
-  FiExternalLink, 
-  FiMessageSquare, 
-  FiUserPlus, 
-  FiShare2, 
-  FiGlobe, 
+import { API_ENDPOINTS } from '../config/api';
+import {
+  FiMail,
+  FiCopy,
+  FiExternalLink,
+  FiMessageSquare,
+  FiUserPlus,
+  FiShare2,
+  FiGlobe,
   FiEdit2,
   FiCheck,
   FiClock,
@@ -47,7 +48,7 @@ const UserProfile = () => {
         setError(null); // Reset error state on new fetch
 
         // Fetch data from your Flask API using the userId from the URL
-        const response = await fetch(`http://127.0.0.1:5000/api/users/${userId}`);
+        const response = await fetch(API_ENDPOINTS.users(userId));
 
         // Check if the request was successful
         if (!response.ok) {

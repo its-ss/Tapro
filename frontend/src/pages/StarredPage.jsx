@@ -4,6 +4,7 @@ import Header from '../components/HeaderTapro';
 import Footer from '../components/Footer';
 import { useNavigate } from 'react-router-dom';
 import { getAuth } from 'firebase/auth';
+import { API_ENDPOINTS } from '../config/api';
 
 const StarredPage = () => {
   const auth = getAuth();
@@ -22,7 +23,7 @@ const StarredPage = () => {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/starred', {
+      const response = await fetch(API_ENDPOINTS.starred, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -75,7 +76,7 @@ const StarredPage = () => {
 
   const handleUnstar = async (itemId) => {
     try {
-      const response = await fetch('http://localhost:5000/api/unstarred', {
+      const response = await fetch(API_ENDPOINTS.unstarred, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

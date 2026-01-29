@@ -4,6 +4,7 @@ import Header from '../components/HeaderTapro';
 import Footer from '../components/Footer';
 import { FiArrowRight, FiArrowLeft, FiTrash2, FiPlus, FiCheck, FiUpload, FiInfo } from 'react-icons/fi';
 import { getAuth } from 'firebase/auth';
+import { API_ENDPOINTS } from '../config/api';
 
 
 // Memoized form components to prevent unnecessary re-renders
@@ -261,7 +262,7 @@ useEffect(() => {
 
 const handleSubmit = useCallback(async () => {
   try {
-    const response = await fetch("http://localhost:5000/api/startup/submit", {
+    const response = await fetch(API_ENDPOINTS.startupSubmit, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"

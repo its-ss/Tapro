@@ -285,7 +285,7 @@ def get_user_startups(user_id):
     if db is None:
         return jsonify({"error": "Server is not connected to the database"}), 500
     try:
-        startups_ref = db.collection('startups').where('ownerId', '==', user_id).stream()
+        startups_ref = db.collection('startup').where('founderId', '==', user_id).stream()
         startups = []
         for startup in startups_ref:
             startup_data = startup.to_dict()
@@ -295,16 +295,50 @@ def get_user_startups(user_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# --- NEW: Route to GET a specific startup ---
+@app.route('/api/startups/<startup_id>', methods=['GET'])
+def get_startup(startup_id):
+    if db is None:
+        return jsonify({"error": "Server is not connected to the database"}), 500
+    try:
+        startup_ref = db.collection('startup').document(startup_id)
+        doc = startup_ref.get()
+        if doc.exists:
+            startup_data = doc.to_dict()
+            startup_data['id'] = doc.id
+            return jsonify(startup_data), 200
+        else:
+            return jsonify({"error": "Startup not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # --- NEW: Route to UPDATE a specific startup ---
 @app.route('/api/startups/<startup_id>', methods=['PUT'])
 def update_startup(startup_id):
     if db is None:
         return jsonify({"error": "Server is not connected to the database"}), 500
     try:
-        startup_ref = db.collection('startups').document(startup_id)
+        startup_ref = db.collection('startup').document(startup_id)
         startup_data = request.get_json()
         startup_ref.set(startup_data, merge=True)
         return jsonify({"success": True, "message": "Startup updated successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# --- NEW: Route to GET a specific investor ---
+@app.route('/api/investors/<investor_id>', methods=['GET'])
+def get_investor(investor_id):
+    if db is None:
+        return jsonify({"error": "Server is not connected to the database"}), 500
+    try:
+        investor_ref = db.collection('investor').document(investor_id)
+        doc = investor_ref.get()
+        if doc.exists:
+            investor_data = doc.to_dict()
+            investor_data['id'] = doc.id
+            return jsonify(investor_data), 200
+        else:
+            return jsonify({"error": "Investor not found"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

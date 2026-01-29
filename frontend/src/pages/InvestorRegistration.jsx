@@ -4,7 +4,8 @@ import Header from '../components/HeaderTapro';
 import Footer from '../components/Footer';
 import { FiArrowRight, FiArrowLeft, FiCheck, FiInfo, FiDollarSign, FiUser, FiBriefcase, FiTarget, FiFileText, FiMapPin } from 'react-icons/fi';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase'; 
+import { auth } from '../firebase';
+import { API_ENDPOINTS } from '../config/api'; 
 
 // Memoized form components to prevent unnecessary re-renders
 const FormInput = memo(({ label, name, type = "text", required = false, placeholder = "", value, onChange, error = null, ...props }) => (
@@ -338,7 +339,7 @@ const handleSubmit = useCallback(async () => {
     };
 
     // Step 4: Send to backend
-    const response = await fetch("http://localhost:5000/api/investor/register", {
+    const response = await fetch(API_ENDPOINTS.investorRegister, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"

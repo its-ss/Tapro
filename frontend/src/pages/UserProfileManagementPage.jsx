@@ -4,15 +4,16 @@ import Header from '../components/HeaderTapro';
 import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
 import { getAuth, signOut } from 'firebase/auth';
+import { API_ENDPOINTS } from '../config/api';
 
-import { 
-  FiEdit2, 
-  FiUser, 
-  FiSettings, 
-  FiBriefcase, 
-  FiBell, 
-  FiSliders, 
-  FiSave, 
+import {
+  FiEdit2,
+  FiUser,
+  FiSettings,
+  FiBriefcase,
+  FiBell,
+  FiSliders,
+  FiSave,
   FiX,
   FiPlus
 } from 'react-icons/fi';
@@ -52,8 +53,8 @@ const ProfileManagementPage = () => {
 
         // Fetch user profile and user startups at the same time
         const [userResponse, startupsResponse] = await Promise.all([
-          fetch(`http://127.0.0.1:5000/api/users/${loggedInUserId}`),
-          fetch(`http://127.0.0.1:5000/api/users/${loggedInUserId}/startups`)
+          fetch(API_ENDPOINTS.users(loggedInUserId)),
+          fetch(API_ENDPOINTS.userStartups(loggedInUserId))
         ]);
 
         if (!userResponse.ok || !startupsResponse.ok) {
@@ -84,7 +85,7 @@ const ProfileManagementPage = () => {
   const handleSaveProfile = async () => {
     if (!formData) return;
     try {
-      const response = await fetch(`http://127.0.0.1:5000/api/users/${loggedInUserId}`, {
+      const response = await fetch(API_ENDPOINTS.users(loggedInUserId), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -110,7 +111,7 @@ const ProfileManagementPage = () => {
     if (!startupFormData || !editingStartupId) return;
 
     try {
-      const response = await fetch(`http://127.0.0.1:5000/api/startups/${editingStartupId}`, {
+      const response = await fetch(API_ENDPOINTS.startups(editingStartupId), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(startupFormData),

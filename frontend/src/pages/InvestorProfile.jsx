@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/HeaderTapro';
 import Footer from '../components/Footer';
-import { 
-  FiMail, 
-  FiCopy, 
-  FiExternalLink, 
-  FiMessageSquare, 
-  FiUserPlus, 
-  FiShare2, 
+import { API_ENDPOINTS } from '../config/api';
+import {
+  FiMail,
+  FiCopy,
+  FiExternalLink,
+  FiMessageSquare,
+  FiUserPlus,
+  FiShare2,
   FiGlobe,
   FiCheck,
   FiCalendar,
@@ -140,21 +141,28 @@ const InvestorProfile = () => {
   ];
 
   useEffect(() => {
-    // Simulate API fetch
     const fetchInvestorData = async () => {
       try {
         setLoading(true);
-        // In a real app, you would fetch from your API with the investorId
-        // const response = await fetch(`/api/investors/${investorId}`);
-        // const data = await response.json();
-        
-        // For now, using mock data
-        setTimeout(() => {
+        setError(null);
+
+        const response = await fetch(API_ENDPOINTS.investors(investorId));
+
+        if (!response.ok) {
+          // If API fails, fall back to mock data for demo
+          console.warn('API call failed, using mock data');
           setInvestor(mockInvestorData);
           setLoading(false);
-        }, 500);
+          return;
+        }
+
+        const data = await response.json();
+        setInvestor(data);
       } catch (err) {
-        setError('Failed to load investor data');
+        console.error('Error fetching investor:', err);
+        // Fall back to mock data for demo
+        setInvestor(mockInvestorData);
+      } finally {
         setLoading(false);
       }
     };

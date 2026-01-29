@@ -3,6 +3,7 @@ import { FiSearch, FiFilter } from 'react-icons/fi';
 import Header from '../components/HeaderTapro';
 import Footer from '../components/Footer';
 import { useNavigate } from 'react-router-dom';
+import { API_ENDPOINTS } from '../config/api';
 
 const DiscoverPage = () => {
   const [activeTab, setActiveTab] = useState('startups');
@@ -17,7 +18,7 @@ const DiscoverPage = () => {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/discover', {
+      const response = await fetch(API_ENDPOINTS.discover, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
