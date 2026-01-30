@@ -54,13 +54,13 @@ except Exception as e:
         db = None
 
 # Collections
-users_collection = db['users'] if db else None
-startups_collection = db['startups'] if db else None
-investors_collection = db['investors'] if db else None
-messages_collection = db['messages'] if db else None
-conversations_collection = db['conversations'] if db else None
-posts_collection = db['posts'] if db else None
-password_resets_collection = db['password_resets'] if db else None
+users_collection = db['users'] if db is not None else None
+startups_collection = db['startups'] if db is not None else None
+investors_collection = db['investors'] if db is not None else None
+messages_collection = db['messages'] if db is not None else None
+conversations_collection = db['conversations'] if db is not None else None
+posts_collection = db['posts'] if db is not None else None
+password_resets_collection = db['password_resets'] if db is not None else None
 
 # Helper functions
 def serialize_doc(doc):
