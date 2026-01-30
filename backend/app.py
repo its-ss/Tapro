@@ -33,13 +33,25 @@ jwt = JWTManager(app)
 mongo_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/tapro')
 try:
     client = MongoClient(mongo_uri)
-    db = client.get_database()
+    # Try to get database from URI, fall back to 'tapro'
+    db = client.get_database() if '/' in mongo_uri.split('@')[-1] else client.get_database('tapro')
+    # If still no database, use default
+    if db is None or db.name == '':
+        db = client['tapro']
     # Test connection
     client.admin.command('ping')
-    print("MongoDB connection successful!")
+    print(f"MongoDB connection successful! Database: {db.name}")
 except Exception as e:
     print(f"MongoDB connection error: {e}")
-    db = None
+    # Try with explicit database name
+    try:
+        client = MongoClient(mongo_uri)
+        db = client['tapro']
+        client.admin.command('ping')
+        print(f"MongoDB connection successful with fallback! Database: {db.name}")
+    except Exception as e2:
+        print(f"MongoDB fallback connection also failed: {e2}")
+        db = None
 
 # Collections
 users_collection = db['users'] if db else None
