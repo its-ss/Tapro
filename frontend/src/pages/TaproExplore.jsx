@@ -27,6 +27,10 @@ import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, apiRequest } from '../config/api';
 
+// Default profile image constant
+const DEFAULT_PROFILE_IMAGE = '/assets/default-avatar.png';
+const DEFAULT_STARTUP_LOGO = '/assets/default-startup.png';
+
 const TaproExplore = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -38,6 +42,10 @@ const TaproExplore = () => {
   const [bookmarkedPosts, setBookmarkedPosts] = useState([]);
   const [postContent, setPostContent] = useState('');
   const [selectedTag, setSelectedTag] = useState(null);
+  const [selectedMedia, setSelectedMedia] = useState(null);
+  const [mediaPreview, setMediaPreview] = useState(null);
+  const [whoToFollow, setWhoToFollow] = useState([]);
+  const fileInputRef = React.useRef(null);
   
   // Mock promotions and trending topics data
   const [promotions] = useState([
@@ -85,6 +93,93 @@ const TaproExplore = () => {
 
     fetchPosts();
   }, [activeFilter]);
+
+  // Fetch Who to Follow from database (random users, startups, investors)
+  useEffect(() => {
+    const fetchWhoToFollow = async () => {
+      try {
+        // Fetch random mix of users, startups, investors
+        const responses = await Promise.all([
+          apiRequest(API_ENDPOINTS.discover, {
+            method: 'POST',
+            body: JSON.stringify({ type: 'startup', limit: 2 })
+          }),
+          apiRequest(API_ENDPOINTS.discover, {
+            method: 'POST',
+            body: JSON.stringify({ type: 'user', limit: 2 })
+          })
+        ]);
+
+        const suggestions = [];
+        for (const response of responses) {
+          if (response.ok) {
+            const data = await response.json();
+            suggestions.push(...(data.data || []));
+          }
+        }
+
+        // Shuffle and take 4 random
+        const shuffled = suggestions.sort(() => 0.5 - Math.random());
+        setWhoToFollow(shuffled.slice(0, 4));
+      } catch (err) {
+        console.error('Error fetching who to follow:', err);
+        // Fallback to mock data
+        setWhoToFollow([
+          { id: 'rippling', name: 'Rippling', role: 'HR Tech Platform', profileImage: '/assets/rippling.svg' },
+          { id: 'notion', name: 'Notion', role: 'Productivity Platform', profileImage: '/assets/notion.svg' }
+        ]);
+      }
+    };
+
+    fetchWhoToFollow();
+  }, []);
+
+  // Handle media selection
+  const handleMediaSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        return;
+      }
+
+      // Check file type
+      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+        alert('Only image and video files are allowed');
+        return;
+      }
+
+      setSelectedMedia(file);
+
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setMediaPreview({
+          url: e.target.result,
+          type: file.type.startsWith('image/') ? 'image' : 'video'
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Remove selected media
+  const removeMedia = () => {
+    setSelectedMedia(null);
+    setMediaPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Helper to get profile image with fallback
+  const getProfileImage = (image, type = 'user') => {
+    if (image && image !== '' && !image.includes('undefined')) {
+      return image;
+    }
+    return type === 'startup' ? DEFAULT_STARTUP_LOGO : DEFAULT_PROFILE_IMAGE;
+  };
 
   // Mock data fallback
   const getMockPosts = () => [
@@ -296,7 +391,7 @@ const TaproExplore = () => {
 
 
   const handlePostContent = async () => {
-    if (postContent.trim() === '') return;
+    if (postContent.trim() === '' && !selectedMedia) return;
 
     // Determine post type based on selected tag
     let postType = 'thought';
@@ -310,9 +405,9 @@ const TaproExplore = () => {
       id: Date.now(),
       author: {
         id: currentUser?.id || 'anonymous',
-        name: currentUser?.name || 'Anonymous',
+        name: currentUser?.name || currentUser?.fullName || 'Anonymous',
         role: currentUser?.role || 'User',
-        avatar: currentUser?.profileImage || '/assets/user.jpeg',
+        avatar: getProfileImage(currentUser?.profileImage),
         isVerified: false
       },
       content: postContent,
@@ -322,22 +417,30 @@ const TaproExplore = () => {
       shares: 0,
       isLiked: false,
       postTime: 'Just now',
-      type: postType
+      type: postType,
+      image: mediaPreview?.url || null
     };
 
     // Optimistic update
     setPosts([newPost, ...posts]);
+    const savedContent = postContent;
+    const savedTag = selectedTag;
+    const savedMedia = mediaPreview;
     setPostContent('');
     setSelectedTag(null);
+    removeMedia();
 
     // Make API call
     try {
+      // For now, we'll send the image as a base64 string
+      // In production, you'd want to upload to a file storage service
       const response = await apiRequest(API_ENDPOINTS.posts, {
         method: 'POST',
         body: JSON.stringify({
-          content: postContent,
+          content: savedContent,
           type: postType,
-          hashtags: selectedTag ? [`#${selectedTag.replace(/[^\w]/g, '')}`] : [],
+          hashtags: savedTag ? [`#${savedTag.replace(/[^\w]/g, '')}`] : [],
+          images: savedMedia ? [savedMedia.url] : [],
         }),
       });
 
@@ -351,11 +454,11 @@ const TaproExplore = () => {
     }
   };
   
-  const navigateToProfile = (authorId) => {
-    if (authorId.includes('warren')) {
-      navigate('/investors/warren-buffett');
-    } else if (authorId === 'suyash-shukla') {
-      navigate('/user/suyash');
+  const navigateToProfile = (authorId, authorType) => {
+    if (authorType === 'investor' || authorId.includes('warren') || authorId.includes('buffett')) {
+      navigate(`/investors/${authorId}`);
+    } else if (authorType === 'user' || authorId === 'suyash-shukla') {
+      navigate(`/users/${authorId}`);
     } else {
       navigate(`/startups/${authorId}`);
     }
@@ -439,14 +542,15 @@ const TaproExplore = () => {
             {/* Create Post */}
             <div className="bg-white rounded-lg p-5 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
-                <img 
-                  src="/assets/user.jpeg" 
-                  alt="User" 
-                  className="w-10 h-10 object-cover rounded-full cursor-pointer" 
-                  onClick={() => navigate('/user/suyash')}
+                <img
+                  src={getProfileImage(currentUser?.profileImage)}
+                  alt="User"
+                  className="w-10 h-10 object-cover rounded-full cursor-pointer"
+                  onError={(e) => { e.target.src = DEFAULT_PROFILE_IMAGE; }}
+                  onClick={() => navigate('/profile/manage')}
                 />
                 <div className="relative flex-1">
-                  <textarea 
+                  <textarea
                     placeholder="Share an update, milestone or announcement..."
                     value={postContent}
                     onChange={(e) => setPostContent(e.target.value)}
@@ -454,11 +558,48 @@ const TaproExplore = () => {
                   />
                 </div>
               </div>
-              
+
+              {/* Media Preview */}
+              {mediaPreview && (
+                <div className="mb-4 relative">
+                  {mediaPreview.type === 'image' ? (
+                    <img
+                      src={mediaPreview.url}
+                      alt="Preview"
+                      className="w-full max-h-64 object-cover rounded-lg"
+                    />
+                  ) : (
+                    <video
+                      src={mediaPreview.url}
+                      controls
+                      className="w-full max-h-64 rounded-lg"
+                    />
+                  )}
+                  <button
+                    onClick={removeMedia}
+                    className="absolute top-2 right-2 bg-black bg-opacity-50 text-white p-1 rounded-full hover:bg-opacity-70"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {/* Hidden file input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleMediaSelect}
+                accept="image/*,video/*"
+                className="hidden"
+              />
+
               <div className="flex flex-wrap justify-between items-center text-xs">
                 <div className="flex flex-wrap gap-2 mb-2 md:mb-0">
-                  <button className="flex items-center gap-1 px-3 py-1.5 bg-gray-50 rounded-full hover:bg-gray-100 transition">
-                    <FiImage className="text-gray-500" /> <span>Media</span>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`flex items-center gap-1 px-3 py-1.5 ${selectedMedia ? 'bg-blue-100 text-blue-600' : 'bg-gray-50'} rounded-full hover:bg-gray-100 transition`}
+                  >
+                    <FiImage className={selectedMedia ? 'text-blue-600' : 'text-gray-500'} /> <span>Media</span>
                   </button>
                   <button className="flex items-center gap-1 px-3 py-1.5 bg-gray-50 rounded-full hover:bg-gray-100 transition">
                     <FiLink className="text-gray-500" /> <span>Link</span>
@@ -786,39 +927,49 @@ const TaproExplore = () => {
                 <h3 className="text-base font-semibold">Who to Follow</h3>
                 <FiUsers className="text-gray-400" />
               </div>
-              
-              {[
-                { id: 'rippling', name: 'Rippling', role: 'HR Tech Platform', image: '/assets/rippling.svg', isVerified: true },
-                { id: 'notion', name: 'Notion', role: 'Productivity Platform', image: '/assets/notion.svg', isVerified: true }
-              ].map((suggestion, index) => (
-                <div key={index} className="flex items-center justify-between py-3 border-b last:border-b-0">
+
+              {whoToFollow.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">Loading suggestions...</p>
+              ) : (
+              whoToFollow.map((suggestion, index) => (
+                <div key={suggestion.id || index} className="flex items-center justify-between py-3 border-b last:border-b-0">
                   <div className="flex items-center">
-                    <img 
-                      src={suggestion.image} 
-                      alt={suggestion.name} 
+                    <img
+                      src={getProfileImage(suggestion.profileImage || suggestion.logo, suggestion.userType === 'startup' ? 'startup' : 'user')}
+                      alt={suggestion.name || suggestion.fullName}
+                      onError={(e) => { e.target.src = DEFAULT_PROFILE_IMAGE; }} 
                       className="w-10 h-10 rounded-full object-cover mr-3 cursor-pointer"
                       onClick={() => navigateToProfile(suggestion.id)}
                     />
                     <div>
                       <div className="flex items-center">
-                        <h4 
+                        <h4
                           className="font-medium text-sm hover:underline cursor-pointer"
-                          onClick={() => navigateToProfile(suggestion.id)}
+                          onClick={() => {
+                            if (suggestion.userType === 'startup') {
+                              navigate(`/startups/${suggestion.id}`);
+                            } else if (suggestion.userType === 'investor') {
+                              navigate(`/investors/${suggestion.id}`);
+                            } else {
+                              navigate(`/users/${suggestion.id}`);
+                            }
+                          }}
                         >
-                          {suggestion.name}
+                          {suggestion.name || suggestion.fullName}
                         </h4>
-                        {suggestion.isVerified && (
+                        {suggestion.verified && (
                           <span className="text-blue-500 ml-1">✓</span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-500">{suggestion.role}</p>
+                      <p className="text-xs text-gray-500">{suggestion.role || suggestion.tagline || suggestion.userType}</p>
                     </div>
                   </div>
                   <button className="bg-black text-white text-xs px-3 py-1 rounded-full hover:bg-gray-800 transition">
                     Follow
                   </button>
                 </div>
-              ))}
+              ))
+              )}
               
               <button 
                 className="w-full mt-3 text-blue-600 text-sm hover:underline"

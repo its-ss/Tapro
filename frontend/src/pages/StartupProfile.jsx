@@ -553,9 +553,17 @@ const StartupProfile = () => {
                 </h2>
                 <p className="text-sm text-gray-600">{startup.tagline}</p>
                 <div className="flex gap-2 text-xs text-gray-500 mt-2 flex-wrap">
-                  {(startup.categories || startup.category || []).map((category, i) => (
-                    <span key={i} className="bg-gray-100 px-2 py-1 rounded">{category}</span>
-                  ))}
+                  {(() => {
+                    const cats = startup.categories || startup.category;
+                    if (Array.isArray(cats)) {
+                      return cats.map((category, i) => (
+                        <span key={i} className="bg-gray-100 px-2 py-1 rounded">{category}</span>
+                      ));
+                    } else if (typeof cats === 'string' && cats) {
+                      return <span className="bg-gray-100 px-2 py-1 rounded">{cats}</span>;
+                    }
+                    return null;
+                  })()}
                   {startup.stage && <span className="bg-gray-100 px-2 py-1 rounded">{startup.stage}</span>}
                   {startup.teamSize && <span className="bg-gray-100 px-2 py-1 rounded">{startup.teamSize}</span>}
                 </div>

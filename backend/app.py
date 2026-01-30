@@ -988,7 +988,8 @@ def create_conversation():
 
     user_id = get_jwt_identity()
     data = request.get_json()
-    other_user_id = data.get('userId')
+    # Accept both userId and participantId for compatibility
+    other_user_id = data.get('userId') or data.get('participantId')
 
     if not other_user_id:
         return jsonify({'error': 'User ID is required'}), 400
