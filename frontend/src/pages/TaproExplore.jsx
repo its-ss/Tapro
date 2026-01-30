@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  FiSearch, 
-  FiImage, 
-  FiMapPin, 
-  FiHeart, 
-  FiMessageSquare, 
-  FiShare2, 
-  FiInfo, 
-  FiFilter, 
-  FiBell, 
-  FiLink, 
-  FiBarChart2, 
+import {
+  FiSearch,
+  FiImage,
+  FiMapPin,
+  FiHeart,
+  FiMessageSquare,
+  FiShare2,
+  FiInfo,
+  FiFilter,
+  FiBell,
+  FiLink,
+  FiBarChart2,
   FiMoreHorizontal,
   FiBookmark,
   FiUsers,
@@ -24,9 +24,12 @@ import {
 } from 'react-icons/fi';
 import Header from '../components/HeaderTapro';
 import Footer from '../components/Footer';
+import { useAuth } from '../context/AuthContext';
+import { API_ENDPOINTS, apiRequest } from '../config/api';
 
 const TaproExplore = () => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [activeFilter, setActiveFilter] = useState('all');
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -56,166 +59,221 @@ const TaproExplore = () => {
     { name: 'Y Combinator Demo Day', date: 'June 3, 2025', location: 'Online' }
   ]);
 
-  // Simulated mock data load
+  // Fetch posts from API
   useEffect(() => {
-    // This would be an API call in a real application
-    const fetchPosts = () => {
+    const fetchPosts = async () => {
       setLoading(true);
-      
-      // Mock data
-      const mockPosts = [
-        {
-          id: 1,
-          author: {
-            id: 'warren-buffett',
-            name: 'Warren Buffett',
-            role: 'Managing Partner at Tech Ventures Capital',
-            avatar: '/assets/Warren_Buffett.jpg',
-            isVerified: true
-          },
-          content: '✨ Learning is a journey, and I\'m loving every step!\n\nCurrently diving deep into private equity, VC, and how angel investors collaborate with merchant bankers.',
-          hashtags: ['#LearningJourney', '#VentureCapital', '#AngelInvestors'],
-          likes: 42,
-          comments: [
-            { 
-              author: { name: 'John Smith', avatar: '/assets/user2.jpg' },
-              text: 'Great insights! Would love to hear more about your thoughts on angel investing.',
-              time: '2 hours ago',
-              likes: 3
-            }
-          ],
-          shares: 5,
-          isLiked: false,
-          postTime: '2 hours ago',
-          type: 'thought'
-        },
-        {
-          id: 2,
-          author: {
-            id: 'discord',
-            name: 'Discord',
-            role: 'Workflow automation platform',
-            avatar: '/assets/discord.svg',
-            isVerified: true
-          },
-          content: '✨ Exploring how partnerships bring innovative ideas to life is fascinating! 🚀\n\nWe\'re excited to announce our integration with Tapro to help startups streamline their workflow.',
-          hashtags: ['#Collaboration', '#StartUps', '#ProductUpdate'],
-          likes: 28,
-          comments: [
-            { 
-              author: { name: 'Sarah Chen', avatar: '/assets/user3.jpg' },
-              text: 'This is exactly what we needed for our team!',
-              time: '1 hour ago',
-              likes: 2
-            }
-          ],
-          shares: 3,
-          isLiked: false,
-          postTime: '4 hours ago',
-          image: '/assets/discord-post.jpg',
-          type: 'announcement'
-        },
-        {
-          id: 3,
-          author: {
-            id: 'suyash-shukla',
-            name: 'Suyash Shukla',
-            role: 'Founder & CEO at FinStream',
-            avatar: '/assets/user.jpeg',
-            isVerified: true
-          },
-          content: '🎉 Thrilled to announce that FinStream has successfully closed our $1.5M seed round led by Tech Ventures Capital with participation from Y Combinator and several strategic angel investors.\n\nWe\'re on a mission to democratize financial analytics for SMEs across emerging markets, and this funding will help us scale our AI capabilities and expand to new regions.\n\nHiring across engineering, product, and sales roles. DM if interested!',
-          hashtags: ['#Funding', '#Fintech', '#Startup', '#Hiring'],
-          likes: 136,
-          comments: [
-            { 
-              author: { name: 'Warren Buffett', avatar: '/assets/Warren_Buffett.jpg' },
-              text: 'Congratulations! Excited to be part of this journey.',
-              time: '30 minutes ago',
-              likes: 8
-            },
-            { 
-              author: { name: 'Alex Johnson', avatar: '/assets/user4.jpg' },
-              text: 'Amazing news! Looking forward to seeing FinStream grow.',
-              time: '20 minutes ago',
-              likes: 2
-            }
-          ],
-          shares: 24,
-          isLiked: true,
-          postTime: '6 hours ago',
-          type: 'funding'
-        },
-        {
-          id: 4,
-          author: {
-            id: 'figma',
-            name: 'Figma',
-            role: 'Design Tool Platform',
-            avatar: '/assets/figma.svg',
-            isVerified: true
-          },
-          content: '📊 How we scaled our design system to support 10M+ users:\n\n1. Built a centralized component library\n2. Implemented strict versioning\n3. Created detailed documentation\n4. Established cross-functional design reviews\n5. Automated testing for visual consistency\n\nWhat strategies have worked for your team?',
-          hashtags: ['#DesignSystem', '#ProductDesign', '#Scaling'],
-          likes: 89,
-          comments: [],
-          shares: 17,
-          isLiked: false,
-          postTime: '1 day ago',
-          type: 'insight'
-        }
-      ];
-      
-      setTimeout(() => {
-        setPosts(mockPosts);
-        setLoading(false);
-      }, 800);
-    };
-    
-    fetchPosts();
-  }, []);
+      try {
+        const response = await apiRequest(`${API_ENDPOINTS.posts}?type=${activeFilter === 'all' ? '' : activeFilter}`);
 
-  const handleLike = (postId) => {
+        if (response.ok) {
+          const data = await response.json();
+          setPosts(data.posts || []);
+        } else {
+          // Fall back to mock data if API fails
+          console.warn('API call failed, using mock data');
+          setPosts(getMockPosts());
+        }
+      } catch (err) {
+        console.error('Error fetching posts:', err);
+        // Fall back to mock data
+        setPosts(getMockPosts());
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPosts();
+  }, [activeFilter]);
+
+  // Mock data fallback
+  const getMockPosts = () => [
+    {
+      id: 1,
+      author: {
+        id: 'warren-buffett',
+        name: 'Warren Buffett',
+        role: 'Managing Partner at Tech Ventures Capital',
+        avatar: '/assets/Warren_Buffett.jpg',
+        isVerified: true
+      },
+      content: '✨ Learning is a journey, and I\'m loving every step!\n\nCurrently diving deep into private equity, VC, and how angel investors collaborate with merchant bankers.',
+      hashtags: ['#LearningJourney', '#VentureCapital', '#AngelInvestors'],
+      likes: 42,
+      comments: [
+        {
+          author: { name: 'John Smith', avatar: '/assets/user2.jpg' },
+          text: 'Great insights! Would love to hear more about your thoughts on angel investing.',
+          time: '2 hours ago',
+          likes: 3
+        }
+      ],
+      shares: 5,
+      isLiked: false,
+      postTime: '2 hours ago',
+      type: 'thought'
+    },
+    {
+      id: 2,
+      author: {
+        id: 'discord',
+        name: 'Discord',
+        role: 'Workflow automation platform',
+        avatar: '/assets/discord.svg',
+        isVerified: true
+      },
+      content: '✨ Exploring how partnerships bring innovative ideas to life is fascinating! 🚀\n\nWe\'re excited to announce our integration with Tapro to help startups streamline their workflow.',
+      hashtags: ['#Collaboration', '#StartUps', '#ProductUpdate'],
+      likes: 28,
+      comments: [
+        {
+          author: { name: 'Sarah Chen', avatar: '/assets/user3.jpg' },
+          text: 'This is exactly what we needed for our team!',
+          time: '1 hour ago',
+          likes: 2
+        }
+      ],
+      shares: 3,
+      isLiked: false,
+      postTime: '4 hours ago',
+      image: '/assets/discord-post.jpg',
+      type: 'announcement'
+    },
+    {
+      id: 3,
+      author: {
+        id: 'suyash-shukla',
+        name: 'Suyash Shukla',
+        role: 'Founder & CEO at FinStream',
+        avatar: '/assets/user.jpeg',
+        isVerified: true
+      },
+      content: '🎉 Thrilled to announce that FinStream has successfully closed our $1.5M seed round led by Tech Ventures Capital with participation from Y Combinator and several strategic angel investors.\n\nWe\'re on a mission to democratize financial analytics for SMEs across emerging markets, and this funding will help us scale our AI capabilities and expand to new regions.\n\nHiring across engineering, product, and sales roles. DM if interested!',
+      hashtags: ['#Funding', '#Fintech', '#Startup', '#Hiring'],
+      likes: 136,
+      comments: [
+        {
+          author: { name: 'Warren Buffett', avatar: '/assets/Warren_Buffett.jpg' },
+          text: 'Congratulations! Excited to be part of this journey.',
+          time: '30 minutes ago',
+          likes: 8
+        },
+        {
+          author: { name: 'Alex Johnson', avatar: '/assets/user4.jpg' },
+          text: 'Amazing news! Looking forward to seeing FinStream grow.',
+          time: '20 minutes ago',
+          likes: 2
+        }
+      ],
+      shares: 24,
+      isLiked: true,
+      postTime: '6 hours ago',
+      type: 'funding'
+    },
+    {
+      id: 4,
+      author: {
+        id: 'figma',
+        name: 'Figma',
+        role: 'Design Tool Platform',
+        avatar: '/assets/figma.svg',
+        isVerified: true
+      },
+      content: '📊 How we scaled our design system to support 10M+ users:\n\n1. Built a centralized component library\n2. Implemented strict versioning\n3. Created detailed documentation\n4. Established cross-functional design reviews\n5. Automated testing for visual consistency\n\nWhat strategies have worked for your team?',
+      hashtags: ['#DesignSystem', '#ProductDesign', '#Scaling'],
+      likes: 89,
+      comments: [],
+      shares: 17,
+      isLiked: false,
+      postTime: '1 day ago',
+      type: 'insight'
+    }
+  ];
+
+  const handleLike = async (postId) => {
+    // Optimistic update
     setPosts(posts.map(post =>
       post.id === postId
         ? { ...post, likes: post.isLiked ? post.likes - 1 : post.likes + 1, isLiked: !post.isLiked }
         : post
     ));
+
+    // Make API call
+    try {
+      await apiRequest(API_ENDPOINTS.postLike(postId), { method: 'POST' });
+    } catch (err) {
+      console.error('Error liking post:', err);
+      // Revert on error
+      setPosts(posts.map(post =>
+        post.id === postId
+          ? { ...post, likes: post.isLiked ? post.likes + 1 : post.likes - 1, isLiked: !post.isLiked }
+          : post
+      ));
+    }
   };
 
   const handleComment = (postId) => {
     setShowCommentField(showCommentField === postId ? null : postId);
   };
   
-  const submitComment = (postId) => {
+  const submitComment = async (postId) => {
     if (commentText.trim() === '') return;
-    
+
+    const newComment = {
+      author: {
+        name: currentUser?.name || 'Anonymous',
+        avatar: currentUser?.profileImage || '/assets/user.jpeg'
+      },
+      text: commentText,
+      time: 'Just now',
+      likes: 0
+    };
+
+    // Optimistic update
     setPosts(posts.map(post =>
       post.id === postId
-        ? { 
-            ...post, 
-            comments: [
-              ...post.comments, 
-              { 
-                author: { name: 'Suyash Shukla', avatar: '/assets/user.jpeg' },
-                text: commentText,
-                time: 'Just now',
-                likes: 0
-              }
-            ]
+        ? {
+            ...post,
+            comments: [...post.comments, newComment]
           }
         : post
     ));
-    
+
     setCommentText('');
     setShowCommentField(null);
+
+    // Make API call
+    try {
+      await apiRequest(API_ENDPOINTS.postComment(postId), {
+        method: 'POST',
+        body: JSON.stringify({ text: commentText }),
+      });
+    } catch (err) {
+      console.error('Error posting comment:', err);
+    }
   };
   
-  const handleBookmark = (postId) => {
-    if (bookmarkedPosts.includes(postId)) {
+  const handleBookmark = async (postId) => {
+    const isBookmarked = bookmarkedPosts.includes(postId);
+
+    // Optimistic update
+    if (isBookmarked) {
       setBookmarkedPosts(bookmarkedPosts.filter(id => id !== postId));
     } else {
       setBookmarkedPosts([...bookmarkedPosts, postId]);
+    }
+
+    // Make API call
+    try {
+      await apiRequest(API_ENDPOINTS.postBookmark(postId), { method: 'POST' });
+    } catch (err) {
+      console.error('Error bookmarking post:', err);
+      // Revert on error
+      if (isBookmarked) {
+        setBookmarkedPosts([...bookmarkedPosts, postId]);
+      } else {
+        setBookmarkedPosts(bookmarkedPosts.filter(id => id !== postId));
+      }
     }
   };
   
@@ -237,31 +295,60 @@ const TaproExplore = () => {
 }, []);
 
 
-  const handlePostContent = () => {
+  const handlePostContent = async () => {
     if (postContent.trim() === '') return;
-    
+
+    // Determine post type based on selected tag
+    let postType = 'thought';
+    if (selectedTag) {
+      if (selectedTag.includes('Funding')) postType = 'funding';
+      else if (selectedTag.includes('Announcement')) postType = 'announcement';
+      else if (selectedTag.includes('Insight')) postType = 'insight';
+    }
+
     const newPost = {
       id: Date.now(),
       author: {
-        id: 'suyash-shukla',
-        name: 'Suyash Shukla',
-        role: 'Founder & CEO at FinStream',
-        avatar: '/assets/user.jpeg',
-        isVerified: true
+        id: currentUser?.id || 'anonymous',
+        name: currentUser?.name || 'Anonymous',
+        role: currentUser?.role || 'User',
+        avatar: currentUser?.profileImage || '/assets/user.jpeg',
+        isVerified: false
       },
       content: postContent,
-      hashtags: selectedTag ? [`#${selectedTag}`] : [],
+      hashtags: selectedTag ? [`#${selectedTag.replace(/[^\w]/g, '')}`] : [],
       likes: 0,
       comments: [],
       shares: 0,
       isLiked: false,
       postTime: 'Just now',
-      type: 'thought'
+      type: postType
     };
-    
+
+    // Optimistic update
     setPosts([newPost, ...posts]);
     setPostContent('');
     setSelectedTag(null);
+
+    // Make API call
+    try {
+      const response = await apiRequest(API_ENDPOINTS.posts, {
+        method: 'POST',
+        body: JSON.stringify({
+          content: postContent,
+          type: postType,
+          hashtags: selectedTag ? [`#${selectedTag.replace(/[^\w]/g, '')}`] : [],
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Update with actual post from server
+        setPosts(prev => prev.map(p => p.id === newPost.id ? { ...p, id: data.post.id } : p));
+      }
+    } catch (err) {
+      console.error('Error creating post:', err);
+    }
   };
   
   const navigateToProfile = (authorId) => {
@@ -274,8 +361,9 @@ const TaproExplore = () => {
     }
   };
   
-  const filteredPosts = activeFilter === 'all' 
-    ? posts 
+  // Posts are already filtered by API, but apply local filter for mock data fallback
+  const filteredPosts = activeFilter === 'all'
+    ? posts
     : posts.filter(post => post.type === activeFilter);
 
   return (

@@ -2,49 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/HeaderTapro';
 import Footer from '../components/Footer';
-import { 
-  FiEdit2, 
-  FiUser, 
-  FiSettings, 
+import { useAuth } from '../context/AuthContext';
+import { API_ENDPOINTS, apiRequest } from '../config/api';
+import {
+  FiEdit2,
+  FiUser,
+  FiSettings,
   FiDollarSign,
-  FiBell, 
-  FiSliders, 
-  FiSave, 
+  FiBell,
+  FiSliders,
+  FiSave,
   FiX
 } from 'react-icons/fi';
 
 const InvestorProfileManagement = () => {
   const navigate = useNavigate();
+  const { currentUser, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [editing, setEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
-  // Mock investor data - in a real app, this would come from your auth system/backend
-  const [investorData, setInvestorData] = useState({
-    fullName: 'Warren Buffett',
-    email: 'warren@techventures.com',
-    phone: '+1 (555) 123-4567',
-    location: 'New York',
-    dob: '1990-08-30',
-    website: 'techventures.capital',
-    linkedinProfile: 'linkedin.com/in/warrenbuffett',
-    about: 'Warren is a globally renowned angel investor and Managing Partner at Tech Ventures Capital. He has a passion for empowering founders and unlocking new markets with capital, mentorship, and strategy.',
-    valueAdd: 'I provide strategic guidance, mentorship, and access to my extensive network of industry professionals. I help startups refine their business models, navigate market challenges, and scale efficiently.',
-    investorType: 'Angel',
-    preference: 'Fintech, SaaS',
-    experience: '10+',
-    assets: '50+',
-    accredited: 'Yes',
-    investments: 'Early-stage startups with global potential',
-    requirements: 'Looking for innovative startups with strong founding teams, clear market fit, and scalable business models. Prefer B2B SaaS and fintech solutions with some traction and revenue.',
-    // Financial information
-    investmentType: 'Series A',
-    timeline: '3-6 months',
-    investmentAmount: '500000',
-    avgInvestment: '$100,000 - $500,000',
-    portfolioValue: '$500M',
-    yearlyInvestments: '5-10',
-    activeInvestment: '3'
-  });
+  // Investor data state - will be populated from API
+  const [investorData, setInvestorData] = useState(null);
 
   // Mock settings data
   const [settingsData, setSettingsData] = useState({
@@ -69,11 +49,44 @@ const InvestorProfileManagement = () => {
   });
 
   // Form data for editing
-  const [formData, setFormData] = useState({...investorData});
+  const [formData, setFormData] = useState(null);
+
+  // Fetch investor data on component load
+  useEffect(() => {
+    if (!currentUser?.id) {
+      navigate('/login');
+      return;
+    }
+
+    const fetchInvestorData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Fetch investor profile - assuming investor ID is stored in user profile
+        const response = await apiRequest(API_ENDPOINTS.investors(currentUser.investorId || currentUser.id));
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch investor profile');
+        }
+
+        const data = await response.json();
+        setInvestorData(data);
+        setFormData(data);
+      } catch (err) {
+        console.error("Error fetching investor data:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInvestorData();
+  }, [currentUser, navigate]);
 
   useEffect(() => {
     // Reset form data when editing is toggled
-    if (editing) {
+    if (editing && investorData) {
       setFormData({...investorData});
     }
   }, [editing, investorData]);
@@ -86,9 +99,35 @@ const InvestorProfileManagement = () => {
     }));
   };
 
-  const handleSaveProfile = () => {
-    setInvestorData(formData);
-    setEditing(false);
+  const handleSaveProfile = async () => {
+    if (!formData) return;
+    try {
+      const response = await apiRequest(API_ENDPOINTS.investors(currentUser.investorId || currentUser.id), {
+        method: 'PUT',
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) throw new Error('Failed to save profile.');
+
+      const result = await response.json();
+      console.log(result.message);
+
+      setInvestorData(formData);
+      setEditing(false);
+    } catch (err) {
+      console.error("Save profile error:", err);
+      alert(err.message);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      console.log('User signed out successfully');
+      navigate('/login');
+    } catch (error) {
+      console.error('Sign out error', error);
+    }
   };
 
   const handleSettingsChange = (settingType, settingName, value) => {
@@ -647,6 +686,16 @@ const InvestorProfileManagement = () => {
         </button>
         
         <div className="mt-4 pt-4 border-t">
+          <h4 className="text-sm font-medium mb-2 text-red-600">Logout</h4>
+          <button
+            onClick={handleLogout}
+            className="border border-red-500 text-red-600 px-4 py-2 rounded text-sm hover:bg-red-50 transition mb-4"
+          >
+            Log Out
+          </button>
+        </div>
+
+        <div className="mt-4 pt-4 border-t">
           <h4 className="text-sm font-medium mb-2 text-red-600">Danger Zone</h4>
           <button className="border border-red-500 text-red-500 px-4 py-2 rounded text-sm">
             Delete Account
@@ -656,7 +705,37 @@ const InvestorProfileManagement = () => {
     </div>
   );
 
-  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F5F5EE] flex flex-col">
+        <Header active="Profile" />
+        <main className="flex-grow flex justify-center items-center">
+          <div>Loading your profile...</div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error || !investorData) {
+    return (
+      <div className="min-h-screen bg-[#F5F5EE] flex flex-col">
+        <Header active="Profile" />
+        <main className="flex-grow flex justify-center items-center">
+          <div className="text-center">
+            <p className="text-red-500 mb-4">{error || 'Could not load investor profile.'}</p>
+            <button
+              onClick={() => navigate('/investor-register')}
+              className="bg-black text-white px-4 py-2 rounded"
+            >
+              Register as Investor
+            </button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F5F5EE] flex flex-col">

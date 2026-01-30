@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/HeaderTapro';
 import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
-import { getAuth, signOut } from 'firebase/auth';
-import { API_ENDPOINTS } from '../config/api';
+import { API_ENDPOINTS, apiRequest } from '../config/api';
 
 import {
   FiEdit2,
@@ -24,12 +23,8 @@ const ProfileManagementPage = () => {
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { currentUser } = useAuth(); // 2. Get the user from the context
-  const loggedInUserId = currentUser?.uid;
-  // Get the logged-in user's ID from localStorage
-  const auth = getAuth();
-  const user = auth.currentUser;
-  const uid = user?.uid;
+  const { currentUser, logout } = useAuth();
+  const loggedInUserId = currentUser?.id;
   
   // States will be populated by the API calls
   const [userData, setUserData] = useState(null);
@@ -53,8 +48,8 @@ const ProfileManagementPage = () => {
 
         // Fetch user profile and user startups at the same time
         const [userResponse, startupsResponse] = await Promise.all([
-          fetch(API_ENDPOINTS.users(loggedInUserId)),
-          fetch(API_ENDPOINTS.userStartups(loggedInUserId))
+          apiRequest(API_ENDPOINTS.users(loggedInUserId)),
+          apiRequest(API_ENDPOINTS.userStartups(loggedInUserId))
         ]);
 
         if (!userResponse.ok || !startupsResponse.ok) {
@@ -85,9 +80,8 @@ const ProfileManagementPage = () => {
   const handleSaveProfile = async () => {
     if (!formData) return;
     try {
-      const response = await fetch(API_ENDPOINTS.users(loggedInUserId), {
+      const response = await apiRequest(API_ENDPOINTS.users(loggedInUserId), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
 
@@ -111,9 +105,8 @@ const ProfileManagementPage = () => {
     if (!startupFormData || !editingStartupId) return;
 
     try {
-      const response = await fetch(API_ENDPOINTS.startups(editingStartupId), {
+      const response = await apiRequest(API_ENDPOINTS.startups(editingStartupId), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(startupFormData),
       });
 
@@ -187,22 +180,15 @@ const ProfileManagementPage = () => {
     }));
   };
 
-  const handleLogout = () => {
-  const auth = getAuth();
-  signOut(auth).then(() => {
-    // This will trigger the AuthContext to update and redirect automatically.
-    console.log('User signed out successfully');
-    navigate('/login'); // You can also explicitly navigate after sign-out
-  }).catch((error) => {
-    console.error('Sign out error', error);
-  });
-};
-
-//const handleLogout = () => {
-//  localStorage.setItem('auth', 'false'); // or localStorage.removeItem('auth');
-//  loggedInUserId=null;   // optional
-//  navigate('/login');
-//};
+  const handleLogout = async () => {
+    try {
+      await logout();
+      console.log('User signed out successfully');
+      navigate('/login');
+    } catch (error) {
+      console.error('Sign out error', error);
+    }
+  };
 
 
 
