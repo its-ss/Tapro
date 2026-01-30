@@ -246,15 +246,16 @@ const StartupProfile = () => {
         );
 
       case 'metrics':
+        const metricsData = startup.metrics || mockStartupData.metrics;
         return (
           <div className="space-y-6">
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <h3 className="text-base font-semibold mb-4">Key Performance Indicators</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                {Object.entries(startup.metrics).map(([key, value], index) => {
+                {Object.entries(metricsData).map(([key, value], index) => {
                   // Convert camelCase to readable format
                   const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-                  
+
                   return (
                     <div key={index} className="bg-gray-50 p-4 rounded-lg text-center">
                       <p className="text-xs text-gray-500 mb-1">{label}</p>
@@ -661,28 +662,29 @@ const StartupProfile = () => {
           {/* Right Sidebar */}
           <div className="w-full lg:w-[320px] space-y-4 lg:sticky lg:top-6">
             {/* Fundraising Card */}
+            {(startup.fundraising || mockStartupData.fundraising) && (
             <div className="bg-white p-5 rounded-xl shadow-sm">
               <h4 className="text-base font-semibold mb-2">Fundraising</h4>
               <p className="text-xs text-gray-500 mb-3 flex items-center justify-between">
-                <span>Current round: {startup.fundraising.currentRound}</span>
-                <span className="flex items-center gap-1"><FiCalendar size={12} /> Closing {new Date(startup.fundraising.closingDate).toLocaleDateString()}</span>
+                <span>Current round: {(startup.fundraising || mockStartupData.fundraising).currentRound}</span>
+                <span className="flex items-center gap-1"><FiCalendar size={12} /> Closing {new Date((startup.fundraising || mockStartupData.fundraising).closingDate).toLocaleDateString()}</span>
               </p>
-              
+
               <div className="flex justify-between text-sm mb-2">
-                <span>Raised: <strong>{startup.fundraising.raised}</strong></span>
-                <span>Goal: <strong>{startup.fundraising.goal}</strong></span>
+                <span>Raised: <strong>{(startup.fundraising || mockStartupData.fundraising).raised}</strong></span>
+                <span>Goal: <strong>{(startup.fundraising || mockStartupData.fundraising).goal}</strong></span>
               </div>
-              
+
               <div className="w-full bg-gray-200 h-2 rounded-full mb-2 overflow-hidden">
-                <div 
-                  className="bg-black h-full rounded-full" 
-                  style={{ width: `${(parseInt(startup.fundraising.raised.replace(/\D/g, '')) / parseInt(startup.fundraising.goal.replace(/\D/g, ''))) * 100}%` }}
+                <div
+                  className="bg-black h-full rounded-full"
+                  style={{ width: `${(parseInt(((startup.fundraising || mockStartupData.fundraising).raised || '0').replace(/\D/g, '')) / parseInt(((startup.fundraising || mockStartupData.fundraising).goal || '1').replace(/\D/g, ''))) * 100}%` }}
                 ></div>
               </div>
-              
+
               <div className="text-xs text-gray-600 flex justify-between mb-3">
-                <span>Valuation: <strong>{startup.fundraising.valuation}</strong></span>
-                <span>{startup.fundraising.investors} investors</span>
+                <span>Valuation: <strong>{(startup.fundraising || mockStartupData.fundraising).valuation}</strong></span>
+                <span>{(startup.fundraising || mockStartupData.fundraising).investors} investors</span>
               </div>
               
               <button 
@@ -706,7 +708,8 @@ const StartupProfile = () => {
                 </p>
               )}
             </div>
-            
+            )}
+
             {/* Contact Information */}
             <div className="bg-white p-5 rounded-xl shadow-sm">
               <h4 className="text-base font-semibold mb-3">Contact Information</h4>
@@ -764,32 +767,34 @@ const StartupProfile = () => {
             )}
             
             {/* Latest Metrics */}
+            {(startup.metrics || mockStartupData.metrics) && (
             <div className="bg-white p-5 rounded-xl shadow-sm">
               <div className="flex justify-between items-center mb-3">
                 <h4 className="text-base font-semibold">Key Metrics</h4>
-                <button 
+                <button
                   onClick={() => setActiveTab('metrics')}
                   className="text-xs text-blue-600"
                 >
                   View All
                 </button>
               </div>
-              
+
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Monthly Revenue</span>
-                  <span className="text-sm font-medium">{startup.metrics.monthlyRevenue}</span>
+                  <span className="text-sm font-medium">{(startup.metrics || mockStartupData.metrics).monthlyRevenue}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Monthly Growth</span>
-                  <span className="text-sm font-medium">{startup.metrics.monthlyGrowth}</span>
+                  <span className="text-sm font-medium">{(startup.metrics || mockStartupData.metrics).monthlyGrowth}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Active Users</span>
-                  <span className="text-sm font-medium">{startup.metrics.activeUsers}</span>
+                  <span className="text-sm font-medium">{(startup.metrics || mockStartupData.metrics).activeUsers}</span>
                 </div>
               </div>
             </div>
+            )}
           </div>
         </div>
       </main>

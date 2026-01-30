@@ -1002,9 +1002,19 @@ def create_conversation():
         'participants': {'$all': [user_id, other_user_id]}
     })
 
+    # Get other user's info for enrichment
+    other_user = users_collection.find_one({'_id': get_object_id(other_user_id)})
+    other_user_info = {
+        'id': other_user_id,
+        'fullName': other_user.get('fullName', 'Unknown') if other_user else 'Unknown',
+        'profileImage': other_user.get('profileImage', '') if other_user else ''
+    }
+
     if existing:
+        conv_data = serialize_doc(existing)
+        conv_data['otherUser'] = other_user_info
         return jsonify({
-            'conversation': serialize_doc(existing),
+            'conversation': conv_data,
             'existing': True
         }), 200
 
@@ -1020,8 +1030,11 @@ def create_conversation():
     result = conversations_collection.insert_one(conv_doc)
     conv_doc['_id'] = result.inserted_id
 
+    conv_data = serialize_doc(conv_doc)
+    conv_data['otherUser'] = other_user_info
+
     return jsonify({
-        'conversation': serialize_doc(conv_doc),
+        'conversation': conv_data,
         'existing': False
     }), 201
 

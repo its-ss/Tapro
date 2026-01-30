@@ -6,6 +6,9 @@ import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, apiRequest } from '../config/api';
 
+// Default avatar as data URI (simple gray circle with user icon)
+const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIyMCIgZmlsbD0iI2UyZThmMCIvPjxwYXRoIGQ9Ik0yMCAyMWE2IDYgMCAxMDAtMTIgNiA2IDAgMDAwIDEyem0wIDNjLTYuNjMgMC0xMiAyLjY5LTEyIDZoMjRjMC0zLjMxLTUuMzctNi0xMi02eiIgZmlsbD0iIzk0YTNiOCIvPjwvc3ZnPg==';
+
 const MessagesPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -24,6 +27,8 @@ const MessagesPage = () => {
   const messagesEndRef = useRef(null);
   const pollingRef = useRef(null);
   const processedNewConversation = useRef(false);
+  const prevMessageCount = useRef(0);
+  const isInitialLoad = useRef(true);
 
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
@@ -202,10 +207,29 @@ const MessagesPage = () => {
     };
   }, [selectedConversation, fetchMessages]);
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom only when new messages are added (not on initial load or polling)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messages.length > 0) {
+      // Only auto-scroll if new messages were added, not on initial load
+      if (messages.length > prevMessageCount.current && !isInitialLoad.current) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+      prevMessageCount.current = messages.length;
+
+      // After first render of messages, mark initial load as done
+      if (isInitialLoad.current) {
+        isInitialLoad.current = false;
+        // Scroll to bottom on initial load without animation
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      }
+    }
   }, [messages]);
+
+  // Reset initial load flag when conversation changes
+  useEffect(() => {
+    isInitialLoad.current = true;
+    prevMessageCount.current = 0;
+  }, [selectedConversation?.id]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -320,9 +344,10 @@ const MessagesPage = () => {
                     <div className="flex items-center gap-3">
                       <div className="relative">
                         <img
-                          src={conv.otherUser?.profileImage || '/assets/default.jpg'}
+                          src={conv.otherUser?.profileImage || DEFAULT_AVATAR}
                           alt={conv.otherUser?.fullName}
                           className="w-12 h-12 rounded-full object-cover"
+                          onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
                         />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -360,9 +385,10 @@ const MessagesPage = () => {
                 <div className="p-4 border-b flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <img
-                      src={selectedConversation.otherUser?.profileImage || '/assets/default.jpg'}
+                      src={selectedConversation.otherUser?.profileImage || DEFAULT_AVATAR}
                       alt={selectedConversation.otherUser?.fullName}
                       className="w-10 h-10 rounded-full object-cover"
+                      onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
                     />
                     <div>
                       <h3 className="font-semibold">
@@ -484,9 +510,10 @@ const MessagesPage = () => {
                       className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer transition"
                     >
                       <img
-                        src={user.profileImage || '/assets/default.jpg'}
+                        src={user.profileImage || DEFAULT_AVATAR}
                         alt={user.fullName || user.name}
                         className="w-10 h-10 rounded-full object-cover"
+                        onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
                       />
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium text-sm truncate">

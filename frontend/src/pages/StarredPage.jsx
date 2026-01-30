@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiSearch, FiFilter } from 'react-icons/fi';
+import { FiSearch, FiFilter, FiCheck } from 'react-icons/fi';
 import Header from '../components/HeaderTapro';
 import Footer from '../components/Footer';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, apiRequest } from '../config/api';
+
+// Default avatar as data URI
+const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIyMCIgZmlsbD0iI2UyZThmMCIvPjxwYXRoIGQ9Ik0yMCAyMWE2IDYgMCAxMDAtMTIgNiA2IDAgMDAwIDEyem0wIDNjLTYuNjMgMC0xMiAyLjY5LTEyIDZoMjRjMC0zLjMxLTUuMzctNi0xMi02eiIgZmlsbD0iIzk0YTNiOCIvPjwvc3ZnPg==';
 
 const StarredPage = () => {
   const { currentUser } = useAuth();
@@ -15,6 +18,7 @@ const StarredPage = () => {
   const [lastDocId, setLastDocId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [followingIds, setFollowingIds] = useState(new Set());
   const navigate = useNavigate();
 
   const fetchData = useCallback(async () => {
@@ -92,6 +96,36 @@ const StarredPage = () => {
     }
   };
 
+  const handleFollow = async (itemId, e) => {
+    e.stopPropagation(); // Prevent card click
+    const isCurrentlyFollowing = followingIds.has(itemId);
+    const endpoint = isCurrentlyFollowing ? API_ENDPOINTS.unfollow : API_ENDPOINTS.follow;
+
+    try {
+      const response = await apiRequest(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({
+          targetId: itemId,
+          type: activeTab.slice(0, -1), // 'startup' or 'investor'
+        }),
+      });
+
+      if (response.ok) {
+        setFollowingIds(prev => {
+          const newSet = new Set(prev);
+          if (isCurrentlyFollowing) {
+            newSet.delete(itemId);
+          } else {
+            newSet.add(itemId);
+          }
+          return newSet;
+        });
+      }
+    } catch (err) {
+      console.error('Failed to follow/unfollow:', err);
+    }
+  };
+
   const renderCard = (entry, i) => {
     const isStartup = activeTab === 'startups';
     const isInvestor = activeTab === 'investors';
@@ -111,9 +145,10 @@ const StarredPage = () => {
 
         <div className="flex items-center gap-2 mb-2">
           <img
-            src={entry.profileImage || entry.logoUrl || '/assets/default.jpg'}
+            src={entry.profileImage || entry.logoUrl || DEFAULT_AVATAR}
             alt="Avatar"
             className="h-8 w-8 object-cover rounded-full"
+            onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
           />
           <div className="font-semibold text-sm line-clamp-1">
             {entry.fullName || entry.startupName || 'Anonymous'}
@@ -156,7 +191,22 @@ const StarredPage = () => {
         </div>
 
         <div className="mt-3 flex flex-col gap-2">
-          <button className="bg-black text-white text-sm py-1 rounded">Follow</button>
+          <button
+            className={`text-sm py-1 rounded flex items-center justify-center gap-1 ${
+              followingIds.has(entry.id)
+                ? 'bg-gray-200 text-gray-800'
+                : 'bg-black text-white'
+            }`}
+            onClick={(e) => handleFollow(entry.id, e)}
+          >
+            {followingIds.has(entry.id) ? (
+              <>
+                <FiCheck size={14} /> Following
+              </>
+            ) : (
+              'Follow'
+            )}
+          </button>
           <button
             className="bg-black text-white text-sm py-1 rounded"
             onClick={() => navigate(`/${activeTab}/${entry.id}`)}
