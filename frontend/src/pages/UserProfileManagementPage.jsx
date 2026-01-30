@@ -14,7 +14,8 @@ import {
   FiSliders,
   FiSave,
   FiX,
-  FiPlus
+  FiPlus,
+  FiLock
 } from 'react-icons/fi';
 
 const ProfileManagementPage = () => {
@@ -34,6 +35,16 @@ const ProfileManagementPage = () => {
   const [formData, setFormData] = useState(null);
   const [startupFormData, setStartupFormData] = useState(null);
   const [editingStartupId, setEditingStartupId] = useState(null);
+
+  // Change password state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
 
  // --- FETCH DATA on component load ---
   useEffect(() => {
@@ -190,6 +201,51 @@ const ProfileManagementPage = () => {
     }
   };
 
+  // Handle change password
+  const handleChangePassword = async () => {
+    setPasswordError('');
+    setPasswordSuccess(false);
+
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      setPasswordError('All fields are required');
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters');
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+
+    try {
+      const response = await apiRequest(API_ENDPOINTS.auth.changePassword, {
+        method: 'POST',
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        })
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || 'Failed to change password');
+      }
+
+      setPasswordSuccess(true);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setTimeout(() => {
+        setShowPasswordModal(false);
+        setPasswordSuccess(false);
+      }, 2000);
+    } catch (err) {
+      setPasswordError(err.message);
+    }
+  };
+
 
 
   const handleSettingsChange = (settingType, settingName, value) => {
@@ -319,12 +375,12 @@ const ProfileManagementPage = () => {
             
             <div className="mt-4">
               <label className="block text-sm font-medium mb-1">Interests (comma separated)</label>
-              <input 
-                type="text" 
-                name="interests" 
-                value={formData.interests.join(', ')} 
+              <input
+                type="text"
+                name="interests"
+                value={(formData.interests || []).join(', ')}
                 onChange={(e) => {
-                  const interestsArray = e.target.value.split(',').map(item => item.trim());
+                  const interestsArray = e.target.value.split(',').map(item => item.trim()).filter(item => item);
                   setFormData({...formData, interests: interestsArray});
                 }}
                 className="w-full border px-3 py-2 rounded text-sm"
@@ -333,20 +389,182 @@ const ProfileManagementPage = () => {
             
             <div className="mt-4">
               <label className="block text-sm font-medium mb-1">Skills (comma separated)</label>
-              <input 
-                type="text" 
-                name="skills" 
-                value={formData.skills.join(', ')} 
+              <input
+                type="text"
+                name="skills"
+                value={(formData.skills || []).join(', ')}
                 onChange={(e) => {
-                  const skillsArray = e.target.value.split(',').map(item => item.trim());
+                  const skillsArray = e.target.value.split(',').map(item => item.trim()).filter(item => item);
                   setFormData({...formData, skills: skillsArray});
                 }}
                 className="w-full border px-3 py-2 rounded text-sm"
               />
             </div>
-            
-            {/* We could add more sections for education and work experience, 
-                but keeping it simpler for this example */}
+
+            <div className="mt-4">
+              <label className="block text-sm font-medium mb-1">What are you looking for?</label>
+              <select
+                name="lookingFor"
+                value={formData.lookingFor || ''}
+                onChange={handleInputChange}
+                className="w-full border px-3 py-2 rounded text-sm"
+              >
+                <option value="">Select</option>
+                <option value="Networking">Networking</option>
+                <option value="Investment">Investment</option>
+                <option value="Co-founder">Finding a Co-founder</option>
+                <option value="Job">Job Opportunities</option>
+                <option value="Mentorship">Mentorship</option>
+                <option value="Partnership">Business Partnerships</option>
+              </select>
+            </div>
+
+            {/* Work Experience Section */}
+            <div className="mt-6 pt-4 border-t">
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="text-sm font-semibold">Work Experience</h4>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newExp = { title: '', company: '', duration: '', description: '' };
+                    setFormData({...formData, workExperience: [...(formData.workExperience || []), newExp]});
+                  }}
+                  className="text-xs flex items-center gap-1 text-blue-600"
+                >
+                  <FiPlus size={14} /> Add
+                </button>
+              </div>
+              {(formData.workExperience || []).map((exp, index) => (
+                <div key={index} className="mb-3 p-3 bg-gray-50 rounded relative">
+                  {(formData.workExperience || []).length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = formData.workExperience.filter((_, i) => i !== index);
+                        setFormData({...formData, workExperience: updated});
+                      }}
+                      className="absolute top-2 right-2 text-gray-500 hover:text-red-500"
+                    >
+                      <FiX size={14} />
+                    </button>
+                  )}
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <input
+                      type="text"
+                      placeholder="Job Title"
+                      value={exp.title || ''}
+                      onChange={(e) => {
+                        const updated = [...formData.workExperience];
+                        updated[index] = {...updated[index], title: e.target.value};
+                        setFormData({...formData, workExperience: updated});
+                      }}
+                      className="border px-2 py-1 rounded text-sm"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Company"
+                      value={exp.company || ''}
+                      onChange={(e) => {
+                        const updated = [...formData.workExperience];
+                        updated[index] = {...updated[index], company: e.target.value};
+                        setFormData({...formData, workExperience: updated});
+                      }}
+                      className="border px-2 py-1 rounded text-sm"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Duration (e.g., 2020 - Present)"
+                    value={exp.duration || ''}
+                    onChange={(e) => {
+                      const updated = [...formData.workExperience];
+                      updated[index] = {...updated[index], duration: e.target.value};
+                      setFormData({...formData, workExperience: updated});
+                    }}
+                    className="w-full border px-2 py-1 rounded text-sm mb-2"
+                  />
+                  <textarea
+                    placeholder="Description"
+                    value={exp.description || ''}
+                    onChange={(e) => {
+                      const updated = [...formData.workExperience];
+                      updated[index] = {...updated[index], description: e.target.value};
+                      setFormData({...formData, workExperience: updated});
+                    }}
+                    className="w-full border px-2 py-1 rounded text-sm"
+                    rows={2}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Education Section */}
+            <div className="mt-6 pt-4 border-t">
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="text-sm font-semibold">Education</h4>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newEdu = { degree: '', institution: '', year: '' };
+                    setFormData({...formData, education: [...(formData.education || []), newEdu]});
+                  }}
+                  className="text-xs flex items-center gap-1 text-blue-600"
+                >
+                  <FiPlus size={14} /> Add
+                </button>
+              </div>
+              {(formData.education || []).map((edu, index) => (
+                <div key={index} className="mb-3 p-3 bg-gray-50 rounded relative">
+                  {(formData.education || []).length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = formData.education.filter((_, i) => i !== index);
+                        setFormData({...formData, education: updated});
+                      }}
+                      className="absolute top-2 right-2 text-gray-500 hover:text-red-500"
+                    >
+                      <FiX size={14} />
+                    </button>
+                  )}
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <input
+                      type="text"
+                      placeholder="Degree"
+                      value={edu.degree || ''}
+                      onChange={(e) => {
+                        const updated = [...formData.education];
+                        updated[index] = {...updated[index], degree: e.target.value};
+                        setFormData({...formData, education: updated});
+                      }}
+                      className="border px-2 py-1 rounded text-sm"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Year"
+                      value={edu.year || ''}
+                      onChange={(e) => {
+                        const updated = [...formData.education];
+                        updated[index] = {...updated[index], year: e.target.value};
+                        setFormData({...formData, education: updated});
+                      }}
+                      className="border px-2 py-1 rounded text-sm"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Institution"
+                    value={edu.institution || ''}
+                    onChange={(e) => {
+                      const updated = [...formData.education];
+                      updated[index] = {...updated[index], institution: e.target.value};
+                      setFormData({...formData, education: updated});
+                    }}
+                    className="w-full border px-2 py-1 rounded text-sm"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </>
       ) : (
@@ -374,7 +592,7 @@ const ProfileManagementPage = () => {
                 <p className="text-sm text-gray-600">{userData.role}</p>
                 <p className="text-sm text-gray-500 mt-1">{userData.location}</p>
                 <div className="flex gap-2 mt-2 flex-wrap">
-                  {userData.interests.map((interest, i) => (
+                  {(userData.interests || []).map((interest, i) => (
                     <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">
                       {interest}
                     </span>
@@ -401,7 +619,7 @@ const ProfileManagementPage = () => {
               <div>
                 <h4 className="text-sm font-semibold mb-2">Skills</h4>
                 <div className="flex flex-wrap gap-2">
-                  {userData.skills.map((skill, i) => (
+                  {(userData.skills || []).map((skill, i) => (
                     <span key={i} className="bg-gray-100 text-xs px-2 py-1 rounded">
                       {skill}
                     </span>
@@ -413,27 +631,35 @@ const ProfileManagementPage = () => {
           
           <div className="bg-white p-6 rounded shadow">
             <h3 className="text-lg font-semibold mb-4">Work Experience</h3>
-            {userData.workExperience.map((job, i) => (
-              <div key={i} className="mb-4 last:mb-0">
-                <div className="flex justify-between">
-                  <h4 className="text-sm font-semibold">{job.title}</h4>
-                  <span className="text-xs text-gray-500">{job.duration}</span>
+            {(userData.workExperience || []).length > 0 ? (
+              (userData.workExperience || []).map((job, i) => (
+                <div key={i} className="mb-4 last:mb-0">
+                  <div className="flex justify-between">
+                    <h4 className="text-sm font-semibold">{job.title}</h4>
+                    <span className="text-xs text-gray-500">{job.duration}</span>
+                  </div>
+                  <p className="text-sm text-gray-600">{job.company}</p>
+                  <p className="text-sm text-gray-500 mt-1">{job.description}</p>
                 </div>
-                <p className="text-sm text-gray-600">{job.company}</p>
-                <p className="text-sm text-gray-500 mt-1">{job.description}</p>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-sm text-gray-500">No work experience added yet.</p>
+            )}
           </div>
           
           <div className="bg-white p-6 rounded shadow">
             <h3 className="text-lg font-semibold mb-4">Education</h3>
-            {userData.education.map((edu, i) => (
-              <div key={i} className="mb-4 last:mb-0">
-                <h4 className="text-sm font-semibold">{edu.degree}</h4>
-                <p className="text-sm text-gray-600">{edu.institution}</p>
-                <p className="text-xs text-gray-500">{edu.year}</p>
-              </div>
-            ))}
+            {(userData.education || []).length > 0 ? (
+              (userData.education || []).map((edu, i) => (
+                <div key={i} className="mb-4 last:mb-0">
+                  <h4 className="text-sm font-semibold">{edu.degree}</h4>
+                  <p className="text-sm text-gray-600">{edu.institution}</p>
+                  <p className="text-xs text-gray-500">{edu.year}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500">No education added yet.</p>
+            )}
           </div>
         </>
       )}
@@ -528,15 +754,14 @@ const ProfileManagementPage = () => {
       
       <div className="bg-white p-6 rounded shadow">
         <h3 className="text-lg font-semibold mb-4">Security Settings</h3>
-        
-        <button className="bg-black text-white px-4 py-2 rounded text-sm">
-          Change Password
+
+        <button
+          onClick={() => setShowPasswordModal(true)}
+          className="bg-black text-white px-4 py-2 rounded text-sm flex items-center gap-2"
+        >
+          <FiLock size={14} /> Change Password
         </button>
 
-        
-      
-    
-        
         <div className="mt-4 pt-4 border-t">
           <h4 className="text-sm font-medium mb-2 text-red-600">Logout</h4>
           <button onClick={handleLogout}
@@ -545,6 +770,89 @@ const ProfileManagementPage = () => {
       </button>
         </div>
       </div>
+
+      {/* Change Password Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Change Password</h3>
+              <button onClick={() => {
+                setShowPasswordModal(false);
+                setPasswordError('');
+                setPasswordSuccess(false);
+                setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+              }}>
+                <FiX size={20} />
+              </button>
+            </div>
+
+            {passwordError && (
+              <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm">
+                {passwordError}
+              </div>
+            )}
+
+            {passwordSuccess && (
+              <div className="bg-green-50 text-green-600 p-3 rounded mb-4 text-sm">
+                Password changed successfully!
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Current Password</label>
+                <input
+                  type="password"
+                  value={passwordData.currentPassword}
+                  onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                  className="w-full border px-3 py-2 rounded text-sm"
+                  placeholder="Enter current password"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">New Password</label>
+                <input
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                  className="w-full border px-3 py-2 rounded text-sm"
+                  placeholder="Enter new password (min 6 characters)"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Confirm New Password</label>
+                <input
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                  className="w-full border px-3 py-2 rounded text-sm"
+                  placeholder="Confirm new password"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setPasswordError('');
+                  setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                }}
+                className="px-4 py-2 border rounded text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleChangePassword}
+                className="px-4 py-2 bg-black text-white rounded text-sm"
+              >
+                Change Password
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 

@@ -507,9 +507,18 @@ const UserProfile = () => {
                 {isFollowing ? 'Following' : 'Follow'}
               </button>
               
-              <button 
+              <button
                 className="bg-blue-500 text-white px-3 py-2 rounded flex items-center justify-center gap-2 hover:bg-blue-600 transition"
-                onClick={() => navigate('/messages')}
+                onClick={() => navigate('/messages', {
+                  state: {
+                    newConversation: {
+                      id: user.id,
+                      name: user.name,
+                      profileImage: user.profileImage,
+                      role: user.role
+                    }
+                  }
+                })}
               >
                 <FiMessageSquare size={14} /> Message
               </button>

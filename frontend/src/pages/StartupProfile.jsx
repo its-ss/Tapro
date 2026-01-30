@@ -106,9 +106,9 @@ const StartupProfile = () => {
   const tabs = [
     { id: 'overview', label: 'Overview' },
     { id: 'metrics', label: 'Metrics' },
-    { id: 'team', label: 'Team', count: mockStartupData.team.length },
-    { id: 'investors', label: 'Investors', count: mockStartupData.investors.length },
-    { id: 'post', label: 'Updates', count: mockStartupData.posts.length }
+    { id: 'team', label: 'Team', count: startup?.team?.length || mockStartupData.team.length },
+    { id: 'investors', label: 'Investors', count: startup?.investors?.length || mockStartupData.investors.length },
+    { id: 'post', label: 'Updates', count: startup?.posts?.length || mockStartupData.posts.length }
   ];
 
   useEffect(() => {
@@ -178,11 +178,11 @@ const StartupProfile = () => {
               <h3 className="text-base font-semibold mb-3">About {startup.name}</h3>
               <p className="text-sm text-gray-600 leading-relaxed">{startup.about}</p>
               
-              {startup.awards && startup.awards.length > 0 && (
+              {(startup.awards || []).length > 0 && (
                 <div className="mt-4">
                   <h4 className="text-sm font-medium mb-2">Awards & Recognition</h4>
                   <div className="flex flex-wrap gap-2">
-                    {startup.awards.map((award, i) => (
+                    {(startup.awards || []).map((award, i) => (
                       <span key={i} className="bg-yellow-50 text-yellow-700 text-xs px-3 py-1 rounded-full border border-yellow-200">
                         🏆 {award}
                       </span>
@@ -192,16 +192,18 @@ const StartupProfile = () => {
               )}
             </div>
             
+            {startup.metrics && (
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-white p-4 rounded-lg shadow-sm text-center">
                 <p className="text-xs text-gray-500 mb-1">Monthly Revenue</p>
-                <p className="text-xl font-bold">{startup.metrics.monthlyRevenue}</p>
+                <p className="text-xl font-bold">{startup.metrics?.monthlyRevenue || 'N/A'}</p>
               </div>
               <div className="bg-white p-4 rounded-lg shadow-sm text-center">
                 <p className="text-xs text-gray-500 mb-1">Active Users</p>
-                <p className="text-xl font-bold">{startup.metrics.activeUsers}</p>
+                <p className="text-xl font-bold">{startup.metrics?.activeUsers || 'N/A'}</p>
               </div>
             </div>
+            )}
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-white p-6 rounded-lg shadow-sm">
@@ -228,11 +230,11 @@ const StartupProfile = () => {
               </div>
             )}
             
-            {startup.similarStartups && startup.similarStartups.length > 0 && (
+            {(startup.similarStartups || []).length > 0 && (
               <div className="bg-white p-6 rounded-lg shadow-sm">
                 <h4 className="text-sm font-semibold mb-3">Similar Startups</h4>
                 <div className="flex flex-wrap gap-3">
-                  {startup.similarStartups.map((similar, i) => (
+                  {(startup.similarStartups || []).map((similar, i) => (
                     <div key={i} className="bg-gray-50 px-4 py-2 rounded-lg text-sm cursor-pointer hover:bg-gray-100">
                       {similar}
                     </div>
@@ -290,7 +292,7 @@ const StartupProfile = () => {
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <h3 className="text-base font-semibold mb-4">Leadership Team</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {startup.team.map((member, index) => (
+                {(startup.team || mockStartupData.team).map((member, index) => (
                   <div key={index} className="bg-gray-50 p-4 rounded-lg">
                     <div className="flex items-center mb-3">
                       <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-gray-500">
@@ -363,7 +365,7 @@ const StartupProfile = () => {
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <h3 className="text-base font-semibold mb-4">Current Investors</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {startup.investors.map((investor, index) => (
+                {(startup.investors || mockStartupData.investors).map((investor, index) => (
                   <div key={index} className="bg-gray-50 p-4 rounded-lg flex items-center">
                     <img 
                       src={investor.logo} 
@@ -434,7 +436,7 @@ const StartupProfile = () => {
       case 'post':
         return (
           <div className="space-y-4">
-            {startup.posts.map(post => (
+            {(startup.posts || mockStartupData.posts).map(post => (
               <div key={post.id} className="bg-white p-5 rounded-lg shadow-sm">
                 <div className="flex items-center gap-3 mb-3">
                   <img src={startup.logo} alt={startup.name} className="w-8 h-8 rounded-full" />
@@ -551,11 +553,11 @@ const StartupProfile = () => {
                 </h2>
                 <p className="text-sm text-gray-600">{startup.tagline}</p>
                 <div className="flex gap-2 text-xs text-gray-500 mt-2 flex-wrap">
-                  {startup.categories.map((category, i) => (
+                  {(startup.categories || startup.category || []).map((category, i) => (
                     <span key={i} className="bg-gray-100 px-2 py-1 rounded">{category}</span>
                   ))}
-                  <span className="bg-gray-100 px-2 py-1 rounded">{startup.stage}</span>
-                  <span className="bg-gray-100 px-2 py-1 rounded">{startup.teamSize}</span>
+                  {startup.stage && <span className="bg-gray-100 px-2 py-1 rounded">{startup.stage}</span>}
+                  {startup.teamSize && <span className="bg-gray-100 px-2 py-1 rounded">{startup.teamSize}</span>}
                 </div>
               </div>
             </div>

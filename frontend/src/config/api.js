@@ -12,6 +12,7 @@ export const API_ENDPOINTS = {
     refresh: `${API_BASE_URL}/api/auth/refresh`,
     forgotPassword: `${API_BASE_URL}/api/auth/forgot-password`,
     resetPassword: `${API_BASE_URL}/api/auth/reset-password`,
+    changePassword: `${API_BASE_URL}/api/auth/change-password`,
     me: `${API_BASE_URL}/api/auth/me`,
   },
 

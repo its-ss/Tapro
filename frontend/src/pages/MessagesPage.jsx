@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { FiSearch, FiSend, FiPlus, FiMoreVertical, FiMessageSquare } from 'react-icons/fi';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { FiSearch, FiSend, FiPlus, FiMoreVertical, FiMessageSquare, FiX, FiUser } from 'react-icons/fi';
 import Header from '../components/HeaderTapro';
 import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, apiRequest } from '../config/api';
 
 const MessagesPage = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { currentUser } = useAuth();
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -14,8 +17,13 @@ const MessagesPage = () => {
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showNewConversationModal, setShowNewConversationModal] = useState(false);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const pollingRef = useRef(null);
+  const processedNewConversation = useRef(false);
 
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
@@ -52,6 +60,133 @@ const MessagesPage = () => {
   useEffect(() => {
     fetchConversations();
   }, [fetchConversations]);
+
+  // Handle incoming new conversation from navigation state (e.g., from user profile)
+  useEffect(() => {
+    const handleNewConversation = async () => {
+      if (location.state?.newConversation && !processedNewConversation.current && !loading) {
+        processedNewConversation.current = true;
+        const targetUser = location.state.newConversation;
+
+        // Check if conversation already exists
+        const existingConv = conversations.find(
+          conv => conv.otherUser?.id === targetUser.id
+        );
+
+        if (existingConv) {
+          setSelectedConversation(existingConv);
+        } else {
+          // Create new conversation
+          try {
+            const response = await apiRequest(API_ENDPOINTS.conversations, {
+              method: 'POST',
+              body: JSON.stringify({ participantId: targetUser.id })
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              await fetchConversations();
+              // Find and select the new conversation
+              setSelectedConversation(data.conversation || {
+                id: data.conversationId,
+                otherUser: {
+                  id: targetUser.id,
+                  fullName: targetUser.name,
+                  profileImage: targetUser.profileImage
+                }
+              });
+            }
+          } catch (err) {
+            console.error('Error creating conversation:', err);
+          }
+        }
+
+        // Clear the navigation state
+        navigate(location.pathname, { replace: true, state: {} });
+      }
+    };
+
+    handleNewConversation();
+  }, [location.state, conversations, loading, fetchConversations, navigate, location.pathname]);
+
+  // Search users for new conversation
+  const searchUsers = async (term) => {
+    if (!term.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearchLoading(true);
+    try {
+      const response = await apiRequest(API_ENDPOINTS.discover, {
+        method: 'POST',
+        body: JSON.stringify({ type: 'user', search: term, limit: 10 })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSearchResults(data.data || []);
+      }
+    } catch (err) {
+      console.error('Error searching users:', err);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (showNewConversationModal) {
+        searchUsers(userSearchTerm);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [userSearchTerm, showNewConversationModal]);
+
+  // Start conversation with selected user
+  const startConversation = async (user) => {
+    // Check if conversation already exists
+    const existingConv = conversations.find(
+      conv => conv.otherUser?.id === user.id
+    );
+
+    if (existingConv) {
+      setSelectedConversation(existingConv);
+      setShowNewConversationModal(false);
+      setUserSearchTerm('');
+      setSearchResults([]);
+      return;
+    }
+
+    // Create new conversation
+    try {
+      const response = await apiRequest(API_ENDPOINTS.conversations, {
+        method: 'POST',
+        body: JSON.stringify({ participantId: user.id })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        await fetchConversations();
+        setSelectedConversation(data.conversation || {
+          id: data.conversationId,
+          otherUser: {
+            id: user.id,
+            fullName: user.fullName || user.name,
+            profileImage: user.profileImage
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Error creating conversation:', err);
+    }
+
+    setShowNewConversationModal(false);
+    setUserSearchTerm('');
+    setSearchResults([]);
+  };
 
   useEffect(() => {
     if (selectedConversation) {
@@ -147,7 +282,11 @@ const MessagesPage = () => {
             <div className="p-4 border-b">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">Messages</h2>
-                <button className="p-2 hover:bg-gray-100 rounded-full">
+                <button
+                  onClick={() => setShowNewConversationModal(true)}
+                  className="p-2 hover:bg-gray-100 rounded-full"
+                  title="New conversation"
+                >
                   <FiPlus className="text-gray-600" />
                 </button>
               </div>
@@ -300,6 +439,81 @@ const MessagesPage = () => {
           </div>
         </div>
       </main>
+
+      {/* New Conversation Modal */}
+      {showNewConversationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-md mx-4">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h3 className="text-lg font-semibold">New Conversation</h3>
+              <button
+                onClick={() => {
+                  setShowNewConversationModal(false);
+                  setUserSearchTerm('');
+                  setSearchResults([]);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="relative mb-4">
+                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search users, investors, startups..."
+                  className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                  value={userSearchTerm}
+                  onChange={(e) => setUserSearchTerm(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div className="max-h-64 overflow-y-auto">
+                {searchLoading ? (
+                  <div className="text-center py-4 text-gray-500">
+                    Searching...
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  searchResults.map((user) => (
+                    <div
+                      key={user.id}
+                      onClick={() => startConversation(user)}
+                      className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer transition"
+                    >
+                      <img
+                        src={user.profileImage || '/assets/default.jpg'}
+                        alt={user.fullName || user.name}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-sm truncate">
+                          {user.fullName || user.name}
+                        </h4>
+                        <p className="text-xs text-gray-500 truncate">
+                          {user.role || user.userType}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : userSearchTerm ? (
+                  <div className="text-center py-4 text-gray-500">
+                    <FiUser className="mx-auto text-3xl mb-2" />
+                    <p>No users found</p>
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-gray-500">
+                    <FiSearch className="mx-auto text-3xl mb-2" />
+                    <p>Search for users to message</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>

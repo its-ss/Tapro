@@ -332,6 +332,45 @@ def get_current_user():
     user.pop('password', None)
     return jsonify({'user': serialize_doc(user)}), 200
 
+@app.route('/api/auth/change-password', methods=['POST'])
+@jwt_required()
+def change_password():
+    """Change password for logged in user"""
+    if db is None:
+        return jsonify({'error': 'Database not connected'}), 500
+
+    user_id = get_jwt_identity()
+    data = request.get_json()
+
+    current_password = data.get('currentPassword', '')
+    new_password = data.get('newPassword', '')
+
+    if not current_password or not new_password:
+        return jsonify({'error': 'Current password and new password are required'}), 400
+
+    if len(new_password) < 6:
+        return jsonify({'error': 'New password must be at least 6 characters'}), 400
+
+    # Get user
+    user = users_collection.find_one({'_id': get_object_id(user_id)})
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    # Verify current password
+    if not check_password(current_password, user['password']):
+        return jsonify({'error': 'Current password is incorrect'}), 401
+
+    # Update password
+    users_collection.update_one(
+        {'_id': get_object_id(user_id)},
+        {'$set': {
+            'password': hash_password(new_password),
+            'updatedAt': datetime.utcnow()
+        }}
+    )
+
+    return jsonify({'message': 'Password changed successfully'}), 200
+
 # ==================== USER ROUTES ====================
 
 @app.route('/api/users/<user_id>', methods=['GET'])
@@ -693,7 +732,7 @@ def discover():
 
 # ==================== STARRED/SAVED ROUTES ====================
 
-@app.route('/api/starred', methods=['POST'])
+@app.route('/api/starred', methods=['GET', 'POST'])
 @jwt_required()
 def get_starred_items():
     """Get user's starred items"""
@@ -701,18 +740,56 @@ def get_starred_items():
         return jsonify({'error': 'Database not connected'}), 500
 
     user_id = get_jwt_identity()
-    data = request.get_json()
-    item_type = data.get('type')  # 'startup' or 'investor'
-    last_doc_id = data.get('lastDocId')
-    limit = min(int(data.get('limit', 10)), 50)
 
-    if item_type not in ['startup', 'investor']:
-        return jsonify({'error': 'Invalid type'}), 400
+    # Support both GET and POST
+    if request.method == 'GET':
+        item_type = request.args.get('type')
+        last_doc_id = request.args.get('lastDocId')
+        limit = min(int(request.args.get('limit', 10)), 50)
+    else:
+        data = request.get_json() or {}
+        item_type = data.get('type')
+        last_doc_id = data.get('lastDocId')
+        limit = min(int(data.get('limit', 10)), 50)
 
     # Get user's saved items
     user = users_collection.find_one({'_id': get_object_id(user_id)})
     if not user:
         return jsonify({'error': 'User not found'}), 404
+
+    # If no type specified, return both startups and investors
+    if not item_type:
+        saved_startups = user.get('savedStartups', [])
+        saved_investors = user.get('savedInvestors', [])
+
+        # Fetch all starred items
+        starred_items = []
+        for startup_id in saved_startups[:limit]:
+            obj_id = get_object_id(startup_id)
+            if obj_id:
+                doc = startups_collection.find_one({'_id': obj_id})
+                if doc:
+                    item = serialize_doc(doc)
+                    item['itemType'] = 'startup'
+                    starred_items.append(item)
+
+        for investor_id in saved_investors[:limit]:
+            obj_id = get_object_id(investor_id)
+            if obj_id:
+                doc = investors_collection.find_one({'_id': obj_id})
+                if doc:
+                    item = serialize_doc(doc)
+                    item['itemType'] = 'investor'
+                    starred_items.append(item)
+
+        return jsonify({
+            'starred': starred_items,
+            'data': starred_items,
+            'lastDocId': None
+        }), 200
+
+    if item_type not in ['startup', 'investor']:
+        return jsonify({'error': 'Invalid type'}), 400
 
     saved_field = 'savedStartups' if item_type == 'startup' else 'savedInvestors'
     saved_ids = user.get(saved_field, [])
@@ -755,12 +832,19 @@ def star_item():
     user_id = get_jwt_identity()
     data = request.get_json()
     item_id = data.get('itemId')
-    item_type = data.get('type')  # 'startup' or 'investor'
+    # Support both 'type' and 'itemType' for compatibility
+    item_type = data.get('itemType') or data.get('type')
 
-    if not item_id or item_type not in ['startup', 'investor']:
-        return jsonify({'error': 'Missing fields or invalid type'}), 400
+    if not item_id or item_type not in ['startup', 'investor', 'user']:
+        return jsonify({'error': 'Missing itemId or invalid itemType'}), 400
 
-    field = 'savedStartups' if item_type == 'startup' else 'savedInvestors'
+    # Users are starred as 'savedUsers', startups as 'savedStartups', etc.
+    if item_type == 'user':
+        field = 'savedUsers'
+    elif item_type == 'startup':
+        field = 'savedStartups'
+    else:
+        field = 'savedInvestors'
 
     users_collection.update_one(
         {'_id': get_object_id(user_id)},
@@ -779,12 +863,19 @@ def unstar_item():
     user_id = get_jwt_identity()
     data = request.get_json()
     item_id = data.get('itemId')
-    item_type = data.get('type')  # 'startup' or 'investor'
+    # Support both 'type' and 'itemType' for compatibility
+    item_type = data.get('itemType') or data.get('type')
 
-    if not item_id or item_type not in ['startup', 'investor']:
-        return jsonify({'error': 'Missing fields or invalid type'}), 400
+    if not item_id or item_type not in ['startup', 'investor', 'user']:
+        return jsonify({'error': 'Missing itemId or invalid itemType'}), 400
 
-    field = 'savedStartups' if item_type == 'startup' else 'savedInvestors'
+    # Users are starred as 'savedUsers', startups as 'savedStartups', etc.
+    if item_type == 'user':
+        field = 'savedUsers'
+    elif item_type == 'startup':
+        field = 'savedStartups'
+    else:
+        field = 'savedInvestors'
 
     users_collection.update_one(
         {'_id': get_object_id(user_id)},
@@ -1041,12 +1132,30 @@ def get_posts():
 
     limit = min(int(request.args.get('limit', 20)), 50)
     before = request.args.get('before')
+    post_type = request.args.get('type', '').strip()
 
     query = {}
     if before:
         before_id = get_object_id(before)
         if before_id:
             query['_id'] = {'$lt': before_id}
+
+    # Filter by post type if specified
+    if post_type:
+        # Map type to possible hashtag patterns
+        type_to_hashtags = {
+            'funding': ['#Funding', '#FundingNews', '#funding'],
+            'announcement': ['#Announcement', '#announcement'],
+            'insight': ['#Insight', '#insight'],
+            'thought': ['#Thought', '#thought', '#LearningJourney']
+        }
+        hashtag_patterns = type_to_hashtags.get(post_type, [])
+
+        # Query matches either the type field or hashtags
+        query['$or'] = [
+            {'type': post_type},
+            {'hashtags': {'$in': hashtag_patterns}}
+        ]
 
     posts = list(posts_collection.find(query).sort('_id', -1).limit(limit))
 
@@ -1114,6 +1223,7 @@ def create_post():
     post_doc = {
         'authorId': user_id,
         'content': content,
+        'type': data.get('type', 'thought'),  # Store post type
         'hashtags': data.get('hashtags', []),
         'images': data.get('images', []),
         'likes': [],
