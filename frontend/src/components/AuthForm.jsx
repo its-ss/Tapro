@@ -14,16 +14,56 @@ const AuthForm = ({ type }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Validation helpers
+  const validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+  };
+
+  const validatePassword = (password) => {
+    return password.length >= 6;
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
-    setLoading(true);
+
+    // Validate email
+    if (!email.trim()) {
+      setError('Email is required.');
+      return;
+    }
+    if (!validateEmail(email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+
+    // Validate password
+    if (!password) {
+      setError('Password is required.');
+      return;
+    }
+    if (!validatePassword(password)) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    // Validate full name for registration
+    if (!isLogin && !fullName.trim()) {
+      setError('Full name is required.');
+      return;
+    }
+    if (!isLogin && fullName.trim().length < 2) {
+      setError('Full name must be at least 2 characters long.');
+      return;
+    }
 
     if (!isLogin && !acceptedTerms) {
       setError('Please accept terms and conditions to continue.');
-      setLoading(false);
       return;
     }
+
+    setLoading(true);
 
     try {
       if (type === 'register') {

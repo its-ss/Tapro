@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Import all pages
@@ -48,6 +48,10 @@ const App = () => {
           <Route path="/profile/manage" element={<ProtectedRoute><ProfileManagementPage /></ProtectedRoute>} />
           <Route path="/explore" element={<ProtectedRoute><TaproExplore /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><ProfileManagementPage /></ProtectedRoute>} />
+
+          {/* Catch-all route - redirect to home */}
+          <Route path="/index.html" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
     </AuthProvider>

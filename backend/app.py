@@ -1050,17 +1050,48 @@ def get_posts():
 
     posts = list(posts_collection.find(query).sort('_id', -1).limit(limit))
 
-    # Enrich with author info
+    # Get current user for isLiked check
+    current_user_id = None
+    try:
+        from flask_jwt_extended import get_jwt_identity
+        current_user_id = get_jwt_identity()
+    except:
+        pass
+
+    # Enrich with author info and transform likes/comments
     enriched = []
     for post in posts:
         author = users_collection.find_one({'_id': get_object_id(post.get('authorId'))})
         post_data = serialize_doc(post)
+
+        # Transform likes array to count and isLiked
+        likes_array = post.get('likes', [])
+        post_data['likes'] = len(likes_array) if isinstance(likes_array, list) else 0
+        post_data['isLiked'] = current_user_id in [str(uid) for uid in likes_array] if current_user_id else False
+
+        # Transform comments to include count
+        comments_array = post.get('comments', [])
+        post_data['commentsCount'] = len(comments_array) if isinstance(comments_array, list) else 0
+
+        # Transform bookmarks
+        bookmarks_array = post.get('bookmarks', [])
+        post_data['isBookmarked'] = current_user_id in [str(uid) for uid in bookmarks_array] if current_user_id else False
+
         if author:
             post_data['author'] = {
                 'id': str(author['_id']),
-                'fullName': author.get('fullName', 'Unknown'),
-                'profileImage': author.get('profileImage', ''),
-                'role': author.get('role', '')
+                'name': author.get('fullName', 'Unknown'),
+                'avatar': author.get('profileImage', '/assets/default.jpg'),
+                'role': author.get('role', ''),
+                'isVerified': author.get('isVerified', False)
+            }
+        else:
+            post_data['author'] = {
+                'id': post.get('authorId', ''),
+                'name': 'Unknown',
+                'avatar': '/assets/default.jpg',
+                'role': '',
+                'isVerified': False
             }
         enriched.append(post_data)
 
