@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/HeaderTapro';
 import Footer from '../components/Footer';
-import { API_ENDPOINTS } from '../config/api';
+import { API_ENDPOINTS, apiRequest } from '../config/api';
+
+// Default avatar as data URI
+const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIyMCIgZmlsbD0iI2UyZThmMCIvPjxwYXRoIGQ9Ik0yMCAyMWE2IDYgMCAxMDAtMTIgNiA2IDAgMDAwIDEyem0wIDNjLTYuNjMgMC0xMiAyLjY5LTEyIDZoMjRjMC0zLjMxLTUuMzctNi0xMi02eiIgZmlsbD0iIzk0YTNiOCIvPjwvc3ZnPg==';
 import {
   FiMail,
   FiCopy,
@@ -32,12 +35,14 @@ const UserProfile = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
 
-  //State initialization 
+  //State initialization
   const [user, setUser] = useState(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copySuccess, setCopySuccess] = useState('');
+  const [userPosts, setUserPosts] = useState([]);
+  const [postsLoading, setPostsLoading] = useState(false);
 
 
   useEffect(() => {
@@ -71,8 +76,30 @@ const UserProfile = () => {
     fetchUserData();
   }, [userId]); // Re-run the effect if the userId in the URL changes
 
-//Tabs moved inside, so it can read 'user's state after it has been fetched
- const tabs = user ? [
+  // Fetch user's posts when viewing posts tab
+  useEffect(() => {
+    const fetchUserPosts = async () => {
+      if (activeTab !== 'posts' || !userId) return;
+
+      setPostsLoading(true);
+      try {
+        const response = await apiRequest(`${API_ENDPOINTS.posts}?authorId=${userId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setUserPosts(data.posts || []);
+        }
+      } catch (err) {
+        console.error('Error fetching user posts:', err);
+      } finally {
+        setPostsLoading(false);
+      }
+    };
+
+    fetchUserPosts();
+  }, [activeTab, userId]);
+
+  //Tabs moved inside, so it can read 'user's state after it has been fetched
+  const tabs = user ? [
     { id: 'overview', label: 'Overview' },
     { id: 'following', label: 'Following', count: user.following?.length || 0 },
     { id: 'posts', label: 'Posts', count: user.stats?.posts || 0 }
@@ -156,9 +183,7 @@ const UserProfile = () => {
                           src={startup.logo} 
                           alt={startup.name} 
                           className="w-10 h-10 rounded-full object-cover"
-                          onError={(e) => {
-                            e.target.src = '/assets/discord.svg'; // Fallback image
-                          }}
+                          onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
                         />
                         <div>
                           <p className="font-medium text-sm">{startup.name}</p>
@@ -190,9 +215,7 @@ const UserProfile = () => {
                           src={job.logo} 
                           alt={job.company} 
                           className="w-8 h-8 rounded-full object-cover"
-                          onError={(e) => {
-                            e.target.src = '/assets/discord.svg'; // Fallback image
-                          }}
+                          onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
                         />
                         <div>
                           <p className="font-medium text-sm">{job.title}</p>
@@ -328,9 +351,7 @@ const UserProfile = () => {
                       src={suggestion.image} 
                       alt={suggestion.name} 
                       className="h-12 w-12 rounded-full object-cover"
-                      onError={(e) => {
-                        e.target.src = '/assets/user.jpeg'; // Fallback image
-                      }}
+                      onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
                     />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{suggestion.name}</p>
@@ -347,19 +368,21 @@ const UserProfile = () => {
         );
 
       case 'posts':
+        const displayPosts = userPosts.length > 0 ? userPosts : (user.posts || []);
         return (
-          <div className="space-y-4">
-            <div className="bg-white p-5 rounded-lg shadow-sm mb-4">
+          <div className="space-y-6">
+            <div className="bg-white p-5 rounded-lg shadow-sm">
               <div className="flex items-center gap-3 mb-4">
-                <img 
-                  src={user.profileImage} 
-                  alt={user.name} 
-                  className="w-10 h-10 rounded-full object-cover" 
+                <img
+                  src={user.profileImage || DEFAULT_AVATAR}
+                  alt={user.name}
+                  className="w-10 h-10 rounded-full object-cover"
+                  onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
                 />
-                <input 
-                  type="text" 
-                  placeholder="Share an update or announcement..." 
-                  className="flex-1 bg-gray-100 px-4 py-2 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-black" 
+                <input
+                  type="text"
+                  placeholder="Share an update or announcement..."
+                  className="flex-1 bg-gray-100 px-4 py-2 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-black"
                 />
               </div>
               <div className="flex justify-between items-center">
@@ -371,38 +394,60 @@ const UserProfile = () => {
                 <button className="bg-black text-white px-4 py-1 rounded text-sm">Post</button>
               </div>
             </div>
-            
-            {(user.posts||[]).map(post => (
-              <div key={post.id} className="bg-white p-5 rounded-lg shadow-sm">
-                <div className="flex items-center gap-3 mb-3">
-                  <img src={user.profileImage} alt={user.name} className="w-10 h-10 rounded-full object-cover" />
-                  <div>
-                    <h4 className="font-medium text-sm">{user.name}</h4>
-                    <p className="text-xs text-gray-500">{post.date}</p>
+
+            {postsLoading ? (
+              <div className="text-center py-8 text-gray-500">Loading posts...</div>
+            ) : displayPosts.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 bg-white rounded-lg shadow-sm">
+                <FiMessageSquare className="mx-auto text-4xl mb-2" />
+                <p>No posts yet</p>
+              </div>
+            ) : (
+              displayPosts.map(post => (
+                <div key={post.id} className="bg-white p-5 rounded-lg shadow-sm">
+                  <div className="flex items-center gap-3 mb-3">
+                    <img
+                      src={post.authorImage || user.profileImage || DEFAULT_AVATAR}
+                      alt={post.authorName || user.name}
+                      className="w-10 h-10 rounded-full object-cover"
+                      onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
+                    />
+                    <div>
+                      <h4 className="font-medium text-sm">{post.authorName || user.name}</h4>
+                      <p className="text-xs text-gray-500">{post.date || new Date(post.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-gray-700 mb-3 whitespace-pre-line">{post.content}</p>
+
+                  {post.media && (
+                    <div className="mb-3 rounded-lg overflow-hidden">
+                      <img src={post.media} alt="Post media" className="w-full max-h-96 object-cover" />
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {(post.hashtags || post.tags || []).map((tag, idx) => (
+                      <span key={idx} className="text-xs text-blue-600 hover:underline cursor-pointer">
+                        {tag.startsWith('#') ? tag : `#${tag}`}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="flex text-xs gap-6 pt-3 border-t">
+                    <button className="flex items-center gap-1 text-gray-600 hover:text-blue-600 transition">
+                      <FiHeart size={14} /> {post.likes || 0} Likes
+                    </button>
+                    <button className="flex items-center gap-1 text-gray-600 hover:text-blue-600 transition">
+                      <FiMessageSquare size={14} /> {post.comments || 0} Comments
+                    </button>
+                    <button className="flex items-center gap-1 text-gray-600 hover:text-blue-600 transition">
+                      <FiShare2 size={14} /> Share
+                    </button>
                   </div>
                 </div>
-                
-                <p className="text-sm text-gray-700 mb-3 whitespace-pre-line">{post.content}</p>
-                
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {(post.hashtags||[]).map((tag, idx) => (
-                    <span key={idx} className="text-xs text-blue-600 hover:underline cursor-pointer">{tag}</span>
-                  ))}
-                </div>
-                
-                <div className="flex text-xs gap-6 pt-3 border-t">
-                  <button className="flex items-center gap-1 text-gray-600 hover:text-blue-600 transition">
-                    <FiHeart size={14} /> {post.likes} Likes
-                  </button>
-                  <button className="flex items-center gap-1 text-gray-600 hover:text-blue-600 transition">
-                    <FiMessageSquare size={14} /> {post.comments} Comments
-                  </button>
-                  <button className="flex items-center gap-1 text-gray-600 hover:text-blue-600 transition">
-                    <FiShare2 size={14} /> Share
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         );
 
@@ -704,9 +749,7 @@ const UserProfile = () => {
                         src={startup.logo} 
                         alt={startup.name} 
                         className="w-10 h-10 rounded-full object-cover"
-                        onError={(e) => {
-                          e.target.src = '/assets/discord.svg'; // Fallback image
-                        }}
+                        onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
                       />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{startup.name}</p>

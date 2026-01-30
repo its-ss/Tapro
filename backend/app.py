@@ -1147,8 +1147,14 @@ def get_posts():
     limit = min(int(request.args.get('limit', 20)), 50)
     before = request.args.get('before')
     post_type = request.args.get('type', '').strip()
+    author_id = request.args.get('authorId', '').strip()
 
     query = {}
+
+    # Filter by author if specified
+    if author_id:
+        query['authorId'] = author_id
+
     if before:
         before_id = get_object_id(before)
         if before_id:

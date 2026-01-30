@@ -27,9 +27,9 @@ import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, apiRequest } from '../config/api';
 
-// Default profile image constant
-const DEFAULT_PROFILE_IMAGE = '/assets/default-avatar.png';
-const DEFAULT_STARTUP_LOGO = '/assets/default-startup.png';
+// Default profile image as data URI (reliable fallback)
+const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIyMCIgZmlsbD0iI2UyZThmMCIvPjxwYXRoIGQ9Ik0yMCAyMWE2IDYgMCAxMDAtMTIgNiA2IDAgMDAwIDEyem0wIDNjLTYuNjMgMC0xMiAyLjY5LTEyIDZoMjRjMC0zLjMxLTUuMzctNi0xMi02eiIgZmlsbD0iIzk0YTNiOCIvPjwvc3ZnPg==';
+const DEFAULT_STARTUP_LOGO = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj48cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHJ4PSI4IiBmaWxsPSIjZTJlOGYwIi8+PHBhdGggZD0iTTEyIDI4VjEyaDh2NGg4djEySDEyem00LTEyaDR2NGgtNHYtNHptOCA0aDR2OGgtNHYtOHoiIGZpbGw9IiM5NGEzYjgiLz48L3N2Zz4=';
 
 const TaproExplore = () => {
   const navigate = useNavigate();
@@ -178,7 +178,7 @@ const TaproExplore = () => {
     if (image && image !== '' && !image.includes('undefined')) {
       return image;
     }
-    return type === 'startup' ? DEFAULT_STARTUP_LOGO : DEFAULT_PROFILE_IMAGE;
+    return type === 'startup' ? DEFAULT_STARTUP_LOGO : DEFAULT_AVATAR;
   };
 
   // Mock data fallback
@@ -546,7 +546,7 @@ const TaproExplore = () => {
                   src={getProfileImage(currentUser?.profileImage)}
                   alt="User"
                   className="w-10 h-10 object-cover rounded-full cursor-pointer"
-                  onError={(e) => { e.target.src = DEFAULT_PROFILE_IMAGE; }}
+                  onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
                   onClick={() => navigate('/profile/manage')}
                 />
                 <div className="relative flex-1">
@@ -937,7 +937,7 @@ const TaproExplore = () => {
                     <img
                       src={getProfileImage(suggestion.profileImage || suggestion.logo, suggestion.userType === 'startup' ? 'startup' : 'user')}
                       alt={suggestion.name || suggestion.fullName}
-                      onError={(e) => { e.target.src = DEFAULT_PROFILE_IMAGE; }} 
+                      onError={(e) => { e.target.src = DEFAULT_AVATAR; }} 
                       className="w-10 h-10 rounded-full object-cover mr-3 cursor-pointer"
                       onClick={() => navigateToProfile(suggestion.id)}
                     />
