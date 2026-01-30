@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { FiArrowRight, FiCheck, FiPlus, FiX } from 'react-icons/fi';
-import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { useAuth } from '../context/AuthContext';
+import { API_ENDPOINTS, apiRequest } from '../config/api';
 
 const UserOnboardingForm = () => {
   const navigate = useNavigate();
@@ -50,18 +50,17 @@ const UserOnboardingForm = () => {
     workExperience: [{ title: '', company: '', duration: '', description: '' }]
   });
 
-  useEffect(() => {
-    const auth = getAuth();
-    const user = auth.currentUser;
+  const { currentUser, updateUser } = useAuth();
 
-    if (user) {
+  useEffect(() => {
+    if (currentUser) {
       setFormData(prev => ({
         ...prev,
-        fullName: user.displayName || '',
-        email: user.email || ''
+        fullName: currentUser.fullName || '',
+        email: currentUser.email || ''
       }));
     }
-  }, []);
+  }, [currentUser]);
 
 
 
@@ -172,34 +171,26 @@ const UserOnboardingForm = () => {
 
 const handleSubmit = async () => {
     try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) throw new Error("User not authenticated");
+      if (!currentUser) throw new Error("User not authenticated");
 
       const payload = {
         ...formData,
         websiteLink: formData.website?.trim() || '',
-        linkedinLink: formData.linkedin?.trim() || '',
-        createdAt: new Date().toISOString(),
-        post: formData.post.length > 0 ? formData.post : [{
-          commentsCount: '',
-          content: '',
-          createdAt: new Date().toISOString(),
-          id: '',
-          likes: '',
-          shareCount: '',
-          tag: '',
-          profileImage: '',
-          role: ''
-        }],
-        userOnboard: [{
-          completed: true,
-          step: ''
-        }]
+        linkedinLink: formData.linkedin?.trim() || ''
       };
 
-      const db = getFirestore();
-      await setDoc(doc(db, 'users', user.uid), payload, { merge: true });
+      const response = await apiRequest(API_ENDPOINTS.userOnboarding(currentUser.id), {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || 'Failed to save onboarding data');
+      }
+
+      // Update user in context to mark as onboarded
+      updateUser({ isOnboarded: true });
 
       navigate('/explore');
     } catch (error) {

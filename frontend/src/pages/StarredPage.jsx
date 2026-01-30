@@ -3,13 +3,12 @@ import { FiSearch, FiFilter } from 'react-icons/fi';
 import Header from '../components/HeaderTapro';
 import Footer from '../components/Footer';
 import { useNavigate } from 'react-router-dom';
-import { getAuth } from 'firebase/auth';
-import { API_ENDPOINTS } from '../config/api';
+import { useAuth } from '../context/AuthContext';
+import { API_ENDPOINTS, apiRequest } from '../config/api';
 
 const StarredPage = () => {
-  const auth = getAuth();
-  const user = auth.currentUser;
-  const uid = user?.uid;
+  const { currentUser } = useAuth();
+  const userId = currentUser?.id;
 
   const [activeTab, setActiveTab] = useState('startups');
   const [dataList, setDataList] = useState([]);
@@ -19,15 +18,13 @@ const StarredPage = () => {
   const navigate = useNavigate();
 
   const fetchData = useCallback(async () => {
-    if (!uid || loading || !hasMore) return;
+    if (!userId || loading || !hasMore) return;
 
     setLoading(true);
     try {
-      const response = await fetch(API_ENDPOINTS.starred, {
+      const response = await apiRequest(API_ENDPOINTS.starred, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          uid,
           type: activeTab.slice(0, -1), // 'startup' or 'investor'
           lastDocId,
           limit: 10,
@@ -48,11 +45,11 @@ const StarredPage = () => {
         console.error(result.error);
       }
     } catch (err) {
-      console.error("Error fetching data:", err);
+      console.error('Error fetching data:', err);
     } finally {
       setLoading(false);
     }
-  }, [activeTab, lastDocId, loading, hasMore, uid]);
+  }, [activeTab, lastDocId, loading, hasMore, userId]);
 
   useEffect(() => {
     setDataList([]);
@@ -76,11 +73,9 @@ const StarredPage = () => {
 
   const handleUnstar = async (itemId) => {
     try {
-      const response = await fetch(API_ENDPOINTS.unstarred, {
+      const response = await apiRequest(API_ENDPOINTS.unstar, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          uid,
           itemId,
           type: activeTab.slice(0, -1),
         }),
@@ -97,85 +92,81 @@ const StarredPage = () => {
     }
   };
 
-const renderCard = (entry, i) => {
-  const isStartup = activeTab === 'startups';
-  const isInvestor = activeTab === 'investors';
+  const renderCard = (entry, i) => {
+    const isStartup = activeTab === 'startups';
+    const isInvestor = activeTab === 'investors';
 
-  return (
-    <div
-      key={entry.id || i}
-      className="relative bg-white rounded-xl shadow-md p-4 h-[300px] w-[300px] mx-auto flex flex-col justify-between"
-    >
-      {/* ★ Top-right star */}
-      <button
-        className="absolute top-2 right-2 text-yellow-500 text-2xl hover:text-yellow-600"
-        onClick={() => handleUnstar(entry.id)}
-        title="Unstar"
+    return (
+      <div
+        key={entry.id || i}
+        className="relative bg-white rounded-xl shadow-md p-4 h-[300px] w-[300px] mx-auto flex flex-col justify-between"
       >
-        ★
-      </button>
+        <button
+          className="absolute top-2 right-2 text-yellow-500 text-2xl hover:text-yellow-600"
+          onClick={() => handleUnstar(entry.id)}
+          title="Unstar"
+        >
+          ★
+        </button>
 
-      {/* Header: logo + name */}
-      <div className="flex items-center gap-2 mb-2">
-        <img
-          src={entry.profileImage || entry.logoUrl || '/assets/default.jpg'}
-          alt="Avatar"
-          className="h-8 w-8 object-cover rounded-full"
-        />
-        <div className="font-semibold text-sm line-clamp-1">
-          {entry.fullName || entry.startupName || 'Anonymous'}
+        <div className="flex items-center gap-2 mb-2">
+          <img
+            src={entry.profileImage || entry.logoUrl || '/assets/default.jpg'}
+            alt="Avatar"
+            className="h-8 w-8 object-cover rounded-full"
+          />
+          <div className="font-semibold text-sm line-clamp-1">
+            {entry.fullName || entry.startupName || 'Anonymous'}
+          </div>
+        </div>
+
+        <div className="flex-grow flex flex-col justify-start overflow-hidden">
+          <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+            {entry.tagline || entry.about || 'No description'}
+          </p>
+
+          <ul className="text-xs text-gray-700 space-y-1">
+            {isStartup && (
+              <>
+                <li className="leading-tight">💼 {entry.category?.[0] || 'Startup'}</li>
+                <li className="leading-tight">📍 {entry.location || '—'}</li>
+                <li className="leading-tight">📈 {entry.fundingRound || '—'}</li>
+                <li className="leading-tight">👥 {entry.teamSize}</li>
+                <li className="leading-tight text-green-600 font-semibold">💰 {entry.raised || '—'}</li>
+              </>
+            )}
+            {isInvestor && (
+              <>
+                <li className="leading-tight">💼 {entry.investorType || 'Investor'}</li>
+                <li className="leading-tight">📍 {entry.location || '—'}</li>
+                <li className="flex items-center gap-2 leading-tight">
+                  📊 {entry.assets || '0'} Investments
+                </li>
+                <li className="flex items-center gap-2 leading-tight">
+                  📅 {entry.metrics?.experience || '0'} yrs experience
+                </li>
+                <li className="leading-tight text-green-600 font-semibold">
+                  💰 {entry.investmentAmount
+                    ? `$${Number(entry.investmentAmount).toLocaleString()}`
+                    : '—'}
+                </li>
+              </>
+            )}
+          </ul>
+        </div>
+
+        <div className="mt-3 flex flex-col gap-2">
+          <button className="bg-black text-white text-sm py-1 rounded">Follow</button>
+          <button
+            className="bg-black text-white text-sm py-1 rounded"
+            onClick={() => navigate(`/${activeTab}/${entry.id}`)}
+          >
+            View Details
+          </button>
         </div>
       </div>
-
-      {/* Description & Info */}
-      <div className="flex-grow flex flex-col justify-start overflow-hidden">
-        <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-          {entry.tagline || entry.about || 'No description'}
-        </p>
-
-        <ul className="text-xs text-gray-700 space-y-1">
-          {isStartup && (
-            <>
-              <li className="leading-tight">💼 {entry.category?.[0] || 'Startup'}</li>
-              <li className="leading-tight">📍 {entry.location || '—'}</li>
-              <li className="leading-tight">📈 {entry.fundingRound || '—'}</li>
-              <li className="leading-tight">👥 {entry.teamSize}</li>
-              <li className="leading-tight text-green-600 font-semibold">💰 {entry.raised || '—'}</li>
-            </>
-          )}
-          {isInvestor && (
-            <>
-              <li className="leading-tight">💼 {entry.investorType || 'Investor'}</li>
-              <li className="leading-tight">📍 {entry.location || '—'}</li>
-              <li className="flex items-center gap-2 leading-tight">
-                📊 {entry.assets || '0'} Investments
-              </li>
-              <li className="flex items-center gap-2 leading-tight">
-                📅 {entry.metrics?.experience || '0'} yrs experience
-              </li>
-              <li className="leading-tight text-green-600 font-semibold">
-                💰 {entry.investmentAmount
-                  ? `$${Number(entry.investmentAmount).toLocaleString()}`
-                  : '—'}
-              </li>
-            </>
-          )}
-        </ul>
-      </div>
-
-      {/* Actions */}
-      <div className="mt-3 flex flex-col gap-2">
-        <button className="bg-black text-white text-sm py-1 rounded">Follow</button>
-        <button
-          className="bg-black text-white text-sm py-1 rounded"
-          onClick={() => navigate(`/${activeTab}/${entry.id}`)}
-        >
-          View Details
-        </button>
-      </div>
-    </div>
-  );
-};
+    );
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F5F5EE] font-sans text-sm">

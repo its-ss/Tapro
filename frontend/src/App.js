@@ -1,10 +1,12 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import ProtectedRoute from './components/ProtectedRoute'; // If you're using the auth wrapper
+import ProtectedRoute from './components/ProtectedRoute';
 
-// import all your pages
+// Import all pages
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import LandingPage from './pages/LandingPage';
 import TaproExplore from './pages/TaproExplore';
 import StarredPage from './pages/StarredPage';
@@ -25,11 +27,15 @@ const App = () => {
     <AuthProvider>
       <Router>
         <Routes>
+          {/* Public routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/Investor-register" element={<InvestorRegistration />} />
 
+          {/* Protected routes */}
           <Route path="/starred" element={<ProtectedRoute><StarredPage /></ProtectedRoute>} />
           <Route path="/discover" element={<ProtectedRoute><DiscoverPage /></ProtectedRoute>} />
           <Route path="/startups/:startupId" element={<ProtectedRoute><StartupProfile /></ProtectedRoute>} />

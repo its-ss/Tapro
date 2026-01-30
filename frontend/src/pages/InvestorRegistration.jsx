@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/HeaderTapro';
 import Footer from '../components/Footer';
 import { FiArrowRight, FiArrowLeft, FiCheck, FiInfo, FiDollarSign, FiUser, FiBriefcase, FiTarget, FiFileText, FiMapPin } from 'react-icons/fi';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase';
-import { API_ENDPOINTS } from '../config/api'; 
+import { useAuth } from '../context/AuthContext';
+import { API_ENDPOINTS, apiRequest } from '../config/api'; 
 
 // Memoized form components to prevent unnecessary re-renders
 const FormInput = memo(({ label, name, type = "text", required = false, placeholder = "", value, onChange, error = null, ...props }) => (
@@ -104,6 +103,7 @@ const MultiSelectButtons = memo(({ options, selected, onChange, error }) => (
 
 const InvestorRegistration = () => {
   const navigate = useNavigate();
+  const { register } = useAuth();
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState({});
   const [showErrors, setShowErrors] = useState(false);
@@ -324,27 +324,16 @@ investorId: "",
 
 const handleSubmit = useCallback(async () => {
   try {
-    // Step 1: Register user in Firebase Auth
-    const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-    const user = userCredential.user;
+    // Step 1: Register user with backend auth
+    await register(formData.email, formData.password, formData.fullName);
 
     // Step 2: Clean data before sending to backend (remove password)
     const { password, confirmPassword, ...cleanFormData } = formData;
 
-    // Step 3: Add Firebase UID and timestamp
-    const payload = {
-      ...cleanFormData,
-      investorId: user.uid,
-      createdAt: new Date().toISOString()
-    };
-
-    // Step 4: Send to backend
-    const response = await fetch(API_ENDPOINTS.investorRegister, {
+    // Step 3: Send investor data to backend (auth token is added by apiRequest)
+    const response = await apiRequest(API_ENDPOINTS.investorRegister, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(cleanFormData)
     });
 
     const result = await response.json();
@@ -358,7 +347,7 @@ const handleSubmit = useCallback(async () => {
     console.error("Error during registration:", error);
     alert("An error occurred: " + error.message);
   }
-}, [formData]);
+}, [formData, register]);
 
 
   // Step titles for progress indicator

@@ -1,21 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FcGoogle } from 'react-icons/fc';
-import { FaMicrosoft, FaApple } from 'react-icons/fa';
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  GoogleAuthProvider,
-  OAuthProvider,
-  signInWithPopup,
-  updateProfile
-} from 'firebase/auth';
-import { getFirestore, doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth } from '../firebase';
+import { useAuth } from '../context/AuthContext';
 
 const AuthForm = ({ type }) => {
   const navigate = useNavigate();
+  const { login, register } = useAuth();
   const isLogin = type === 'login';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -29,74 +20,31 @@ const AuthForm = ({ type }) => {
     setLoading(true);
 
     if (!isLogin && !acceptedTerms) {
-      setError("Please accept terms and conditions to continue.");
+      setError('Please accept terms and conditions to continue.');
       setLoading(false);
       return;
     }
 
     try {
-      const db = getFirestore();
-
       if (type === 'register') {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-
-        await updateProfile(user, { displayName: fullName });
-
-        await setDoc(doc(db, 'users', user.uid), {
-          uid: user.uid,
-          fullName: fullName,
-          email: user.email,
-          profileImage: '',
-          provider: user.providerData[0]?.providerId || 'password',
-          createdAt: serverTimestamp(),
-          userOnboard: [{ completed: false, step: '0' }]
-        });
-
-        localStorage.setItem('auth', 'true');
-        localStorage.setItem('userName', fullName);
-        navigate('/userOnboard');
+        const data = await register(email, password, fullName);
+        // Check if user needs onboarding
+        if (!data.user.isOnboarded) {
+          navigate('/userOnboard');
+        } else {
+          navigate('/explore');
+        }
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
-        localStorage.setItem('auth', 'true');
-        navigate('/explore');
+        const data = await login(email, password);
+        // Check if user needs onboarding
+        if (!data.user.isOnboarded) {
+          navigate('/userOnboard');
+        } else {
+          navigate('/explore');
+        }
       }
-    } catch (error) {
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleProviderLogin = async (provider) => {
-    setError('');
-    setLoading(true);
-
-    try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-
-      const isNewUser = user.metadata.creationTime === user.metadata.lastSignInTime;
-
-      const db = getFirestore();
-      await setDoc(doc(db, 'users', user.uid), {
-        uid: user.uid,
-        fullName: user.displayName || '',
-        email: user.email || '',
-        profileImage: user.photoURL || '',
-        provider: user.providerData[0]?.providerId || '',
-        createdAt: serverTimestamp(),
-        userOnboard: [{ completed: false, step: '0' }]
-      }, { merge: true });
-
-      localStorage.setItem('auth', 'true');
-      if (isNewUser) {
-        navigate('/userOnboard');
-      } else {
-        navigate('/explore');
-      }
-    } catch (error) {
-      setError(error.message);
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -167,6 +115,7 @@ const AuthForm = ({ type }) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              minLength={6}
             />
           </div>
 
@@ -180,14 +129,17 @@ const AuthForm = ({ type }) => {
                 className="mr-2"
               />
               <label htmlFor="terms" className="text-sm">
-                I accept the <Link to="/terms" className="text-blue-500 hover:underline">terms and conditions</Link>
+                I accept the{' '}
+                <Link to="/terms" className="text-blue-500 hover:underline">
+                  terms and conditions
+                </Link>
               </label>
             </div>
           )}
 
-          <button 
-            type="submit" 
-            className="w-full bg-black text-white py-2 rounded mb-4 hover:bg-gray-800 transition"
+          <button
+            type="submit"
+            className="w-full bg-black text-white py-2 rounded mb-4 hover:bg-gray-800 transition disabled:opacity-50"
             disabled={loading}
           >
             {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
@@ -195,50 +147,19 @@ const AuthForm = ({ type }) => {
 
           {isLogin && (
             <div className="mt-4 text-center text-sm">
-              <Link to="/forgot-password" className="text-blue-500 hover:underline">Forgot password?</Link>
+              <Link to="/forgot-password" className="text-blue-500 hover:underline">
+                Forgot password?
+              </Link>
             </div>
           )}
         </form>
 
-        <div className="my-4 flex items-center">
-          <hr className="flex-grow border-gray-300" />
-          <span className="mx-2 text-xs text-gray-500">OR CONTINUE WITH</span>
-          <hr className="flex-grow border-gray-300" />
-        </div>
-
-        <div className="flex justify-center gap-4">
-          <button
-            onClick={() => handleProviderLogin(new GoogleAuthProvider())}
-            className="border rounded p-2 hover:bg-gray-100 transition"
-            type="button"
-            disabled={loading}
-          >
-            <FcGoogle size={24} />
-          </button>
-          <button
-            onClick={() => handleProviderLogin(new OAuthProvider('microsoft.com'))}
-            className="border rounded p-2 hover:bg-gray-100 transition"
-            type="button"
-            disabled={loading}
-          >
-            <FaMicrosoft size={24} className="text-[#0078D4]" />
-          </button>
-          <button
-            onClick={() => handleProviderLogin(new OAuthProvider('apple.com'))}
-            className="border rounded p-2 hover:bg-gray-100 transition"
-            type="button"
-            disabled={loading}
-          >
-            <FaApple size={24} className="text-black" />
-          </button>
-        </div>
-
         {!isLogin && (
           <div className="mt-6 text-center text-sm">
             Are you an investor?{' '}
-            <a href="/Investor-register" className="text-blue-500 hover:underline">
+            <Link to="/Investor-register" className="text-blue-500 hover:underline">
               Register here
-            </a>
+            </Link>
           </div>
         )}
       </div>

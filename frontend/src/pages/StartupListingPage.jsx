@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/HeaderTapro';
 import Footer from '../components/Footer';
 import { FiArrowRight, FiArrowLeft, FiTrash2, FiPlus, FiCheck, FiUpload, FiInfo } from 'react-icons/fi';
-import { getAuth } from 'firebase/auth';
-import { API_ENDPOINTS } from '../config/api';
+import { useAuth } from '../context/AuthContext';
+import { API_ENDPOINTS, apiRequest } from '../config/api';
 
 
 // Memoized form components to prevent unnecessary re-renders
@@ -141,18 +141,17 @@ investors: [""],
 startupName:""
 });
 
-useEffect(() => {
-  const auth = getAuth();
-  const user = auth.currentUser;
+const { currentUser } = useAuth();
 
-  if (user) {
+useEffect(() => {
+  if (currentUser) {
     setFormData((prev) => ({
       ...prev,
-      email: user.email || "",
-      founderId: user.uid || ""  // ✅ Include UID
+      email: currentUser.email || "",
+      founderId: currentUser.id || ""
     }));
   }
-}, []);
+}, [currentUser]);
 
 
   const [errors, setErrors] = useState({});
@@ -262,11 +261,8 @@ useEffect(() => {
 
 const handleSubmit = useCallback(async () => {
   try {
-    const response = await fetch(API_ENDPOINTS.startupSubmit, {
+    const response = await apiRequest(API_ENDPOINTS.startupSubmit, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
       body: JSON.stringify(formData)
     });
 
@@ -275,7 +271,7 @@ const handleSubmit = useCallback(async () => {
       alert("Your startup has been successfully listed!");
       navigate("/explore");
     } else {
-      alert("Submission failed: " + result.message);
+      alert("Submission failed: " + (result.error || result.message));
     }
   } catch (error) {
     console.error("Error submitting form:", error);

@@ -1,323 +1,304 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { FiSearch, FiSend, FiPlus, FiPaperclip, FiMoreVertical, FiInfo, FiMessageSquare } from 'react-icons/fi';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { FiSearch, FiSend, FiPlus, FiMoreVertical, FiMessageSquare } from 'react-icons/fi';
 import Header from '../components/HeaderTapro';
 import Footer from '../components/Footer';
-
-// Sample data - in a real app this would come from an API or state management
-const initialMessages = [
-  {
-    id: 1,
-    name: 'Vladimir Putin',
-    role: 'Managing Director | Ruler',
-    avatar: '/assets/putin.jpeg',
-    lastMessage: 'Putin: Sure, I can make time. What sector are you in?',
-    date: '23 Jan',
-    unread: true,
-    online: true,
-    chat: [
-      {
-        id: 101,
-        sender: 'Suyash',
-        isSelf: true,
-        message: 'Hey!! I saw your profile and I\'m impressed with your investment portfolio.',
-        avatar: '/assets/user.jpeg',
-        time: '10:45 AM',
-      },
-      {
-        id: 102,
-        sender: 'Vladimir Putin',
-        isSelf: false,
-        message: 'Hello, thank you for reaching out. I\'m always looking for promising opportunities.',
-        avatar: '/assets/putin.jpeg',
-        time: '10:46 AM',
-      },
-      {
-        id: 103,
-        sender: 'Suyash',
-        isSelf: true,
-        message: 'Great! I\'d love to tell you about my startup. Do you have time for a quick chat this week?',
-        avatar: '/assets/user.jpeg',
-        time: '10:48 AM',
-      },
-      {
-        id: 104,
-        sender: 'Vladimir Putin',
-        isSelf: false,
-        message: 'Sure, I can make time. What sector are you in?',
-        avatar: '/assets/putin.jpeg',
-        time: '10:51 AM',
-      }
-    ]
-  },
-  {
-    id: 2,
-    name: 'Discord',
-    role: 'AI Workflow Automation',
-    avatar: '/assets/discord.svg',
-    lastMessage: 'You: Looking for Investment?',
-    date: '23 Jan',
-    unread: false,
-    online: false,
-    chat: [
-      {
-        id: 201,
-        sender: 'Suyash',
-        isSelf: true,
-        message: 'Looking for Investment?',
-        avatar: '/assets/user.jpeg',
-        time: '2:25 PM',
-      }
-    ]
-  },
-  {
-    id: 3,
-    name: 'Warren Buffett',
-    role: 'Managing Partner at Tech Ventures Capital',
-    avatar: '/assets/Warren_Buffett.jpg',
-    lastMessage: 'Warren: Hey!!',
-    date: '23 Jan',
-    unread: true,
-    online: true,
-    chat: [
-      {
-        id: 301,
-        sender: 'Warren Buffett',
-        isSelf: false,
-        message: 'Hey!! Thanks for connecting. I saw your startup profile - very interesting work you\'re doing.',
-        avatar: '/assets/Warren_Buffett.jpg',
-        time: '9:12 AM',
-      }
-    ]
-  },
-];
+import { useAuth } from '../context/AuthContext';
+import { API_ENDPOINTS, apiRequest } from '../config/api';
 
 const MessagesPage = () => {
-  const [messagesList, setMessagesList] = useState(initialMessages);
-  const [activeChat, setActiveChat] = useState(messagesList[0]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const { currentUser } = useAuth();
+  const [conversations, setConversations] = useState([]);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
-  const chatBodyRef = useRef(null);
-  const messageInputRef = useRef(null);
+  const [loading, setLoading] = useState(true);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const messagesEndRef = useRef(null);
+  const pollingRef = useRef(null);
 
-  // Filter messages based on search term
-  const filteredMessages = messagesList.filter(chat => 
-    chat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    chat.lastMessage.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  useEffect(() => {
-    if (chatBodyRef.current) {
-      chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
-    }
-  }, [activeChat]);
-
-  useEffect(() => {
-    if (messageInputRef.current) {
-      messageInputRef.current.focus();
-    }
-  }, [activeChat]);
-
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (!newMessage.trim()) return;
-
-    const message = {
-      id: Date.now(),
-      sender: 'Suyash',
-      isSelf: true,
-      message: newMessage,
-      avatar: '/assets/user.jpeg',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    const updatedMessagesList = messagesList.map(chat => {
-      if (chat.id === activeChat.id) {
-        return {
-          ...chat,
-          chat: [...chat.chat, message],
-          lastMessage: `You: ${newMessage.substring(0, 30)}${newMessage.length > 30 ? '...' : ''}`,
-          date: 'Now',
-        };
+  // Fetch conversations
+  const fetchConversations = useCallback(async () => {
+    try {
+      const response = await apiRequest(API_ENDPOINTS.conversations);
+      if (response.ok) {
+        const data = await response.json();
+        setConversations(data.conversations || []);
       }
-      return chat;
-    });
+    } catch (err) {
+      console.error('Error fetching conversations:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    setMessagesList(updatedMessagesList);
-    setActiveChat(updatedMessagesList.find(chat => chat.id === activeChat.id));
-    setNewMessage('');
+  // Fetch messages for selected conversation
+  const fetchMessages = useCallback(async () => {
+    if (!selectedConversation) return;
+
+    try {
+      const response = await apiRequest(
+        API_ENDPOINTS.conversationMessages(selectedConversation.id)
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(data.messages || []);
+      }
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+    }
+  }, [selectedConversation]);
+
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  useEffect(() => {
+    if (selectedConversation) {
+      fetchMessages();
+      // Poll for new messages every 3 seconds
+      pollingRef.current = setInterval(fetchMessages, 3000);
+    }
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+    };
+  }, [selectedConversation, fetchMessages]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !selectedConversation || sendingMessage) return;
+
+    setSendingMessage(true);
+    try {
+      const response = await apiRequest(
+        API_ENDPOINTS.conversationMessages(selectedConversation.id),
+        {
+          method: 'POST',
+          body: JSON.stringify({ content: newMessage.trim() }),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(prev => [...prev, data.message]);
+        setNewMessage('');
+        // Update conversation list
+        fetchConversations();
+      }
+    } catch (err) {
+      console.error('Error sending message:', err);
+    } finally {
+      setSendingMessage(false);
+    }
   };
 
+  const formatTime = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+  };
+
+  const filteredConversations = conversations.filter(conv =>
+    conv.otherUser?.fullName?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#F5F5EE]">
+        <Header active="Message" />
+        <div className="flex-grow flex items-center justify-center">
+          <p className="text-gray-500">Loading conversations...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#F5F5EE] w-full">
+    <div className="min-h-screen flex flex-col bg-[#F5F5EE]">
       <Header active="Message" />
 
-      <main className="flex-grow flex mx-auto py-4 px-4 w-full max-w-[1400px]">
-        {/* Fixed width sidebar - won't change with content */}
-        <aside className="w-[320px] flex-shrink-0 flex-grow-0 bg-white rounded-lg shadow-md flex flex-col h-[calc(100vh-120px)] overflow-hidden">
-          <div className="p-4 border-b flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Messages</h2>
-          
-          </div>
+      <main className="flex-grow max-w-6xl mx-auto w-full px-4 py-6">
+        <div className="bg-white rounded-xl shadow-sm h-[calc(100vh-200px)] flex overflow-hidden">
+          {/* Sidebar - Conversation List */}
+          <div className="w-80 border-r flex flex-col">
+            <div className="p-4 border-b">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">Messages</h2>
+                <button className="p-2 hover:bg-gray-100 rounded-full">
+                  <FiPlus className="text-gray-600" />
+                </button>
+              </div>
+              <div className="relative">
+                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search conversations..."
+                  className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
 
-          {/* Search */}
-          <div className="px-4 py-2">
-            <div className="relative">
-              <FiSearch className="absolute top-2.5 left-3 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search messages..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 rounded-full border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black"
-              />
+            <div className="flex-1 overflow-y-auto">
+              {filteredConversations.length === 0 ? (
+                <div className="p-4 text-center text-gray-500">
+                  <FiMessageSquare className="mx-auto text-4xl mb-2" />
+                  <p>No conversations yet</p>
+                </div>
+              ) : (
+                filteredConversations.map((conv) => (
+                  <div
+                    key={conv.id}
+                    onClick={() => setSelectedConversation(conv)}
+                    className={`p-4 border-b cursor-pointer hover:bg-gray-50 transition ${
+                      selectedConversation?.id === conv.id ? 'bg-gray-100' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <img
+                          src={conv.otherUser?.profileImage || '/assets/default.jpg'}
+                          alt={conv.otherUser?.fullName}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold truncate">
+                            {conv.otherUser?.fullName || 'Unknown'}
+                          </h3>
+                          <span className="text-xs text-gray-500">
+                            {conv.lastMessage?.createdAt
+                              ? formatDate(conv.lastMessage.createdAt)
+                              : ''}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-500 truncate">
+                          {conv.lastMessage?.content || 'No messages yet'}
+                        </p>
+                      </div>
+                      {conv.unreadCount?.[currentUser?.id] > 0 && (
+                        <span className="bg-black text-white text-xs px-2 py-1 rounded-full">
+                          {conv.unreadCount[currentUser?.id]}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
-          {/* Chat List */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
-            {filteredMessages.length === 0 ? (
-              <div className="text-center p-4 text-gray-500">No conversations found</div>
-            ) : (
-              filteredMessages.map((chat) => (
-                <div
-                  key={chat.id}
-                  onClick={() => setActiveChat(chat)}
-                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 border-b relative ${
-                    chat.id === activeChat.id ? 'bg-gray-100' : ''
-                  }`}
-                >
-                  <div className="relative flex-shrink-0">
+          {/* Chat Area */}
+          <div className="flex-1 flex flex-col">
+            {selectedConversation ? (
+              <>
+                {/* Chat Header */}
+                <div className="p-4 border-b flex items-center justify-between">
+                  <div className="flex items-center gap-3">
                     <img
-                      src={chat.avatar}
-                      alt={chat.name}
-                      className="w-12 h-12 rounded-full object-cover"
+                      src={selectedConversation.otherUser?.profileImage || '/assets/default.jpg'}
+                      alt={selectedConversation.otherUser?.fullName}
+                      className="w-10 h-10 rounded-full object-cover"
                     />
-                    {chat.online && (
-                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></span>
-                    )}
-                  </div>
-
-                  <div className="min-w-0 flex-1 overflow-hidden">
-                    <div className="flex justify-between items-center">
-                      <p className="font-semibold text-sm truncate max-w-[150px]">{chat.name}</p>
-                      <span className="text-xs text-gray-400 whitespace-nowrap">{chat.date}</span>
+                    <div>
+                      <h3 className="font-semibold">
+                        {selectedConversation.otherUser?.fullName || 'Unknown'}
+                      </h3>
                     </div>
-                    <p className={`text-xs truncate max-w-[200px] ${chat.unread ? 'font-bold text-black' : 'text-gray-500'}`}>
-                      {chat.lastMessage}
-                    </p>
                   </div>
-
-                  {chat.unread && (
-                    <span className="absolute right-4 top-4 w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></span>
-                  )}
+                  <button className="p-2 hover:bg-gray-100 rounded-full">
+                    <FiMoreVertical className="text-gray-600" />
+                  </button>
                 </div>
-              ))
+
+                {/* Messages */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {messages.map((msg) => {
+                    const isSelf = msg.senderId === currentUser?.id;
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex ${isSelf ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[70%] rounded-2xl px-4 py-2 ${
+                            isSelf
+                              ? 'bg-black text-white rounded-br-sm'
+                              : 'bg-gray-100 text-gray-900 rounded-bl-sm'
+                          }`}
+                        >
+                          <p>{msg.content}</p>
+                          <p
+                            className={`text-xs mt-1 ${
+                              isSelf ? 'text-gray-300' : 'text-gray-500'
+                            }`}
+                          >
+                            {formatTime(msg.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                {/* Message Input */}
+                <form onSubmit={handleSendMessage} className="p-4 border-t">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Type a message..."
+                      className="flex-1 px-4 py-2 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-black"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      disabled={sendingMessage}
+                    />
+                    <button
+                      type="submit"
+                      className="p-3 bg-black text-white rounded-full hover:bg-gray-800 transition disabled:opacity-50"
+                      disabled={!newMessage.trim() || sendingMessage}
+                    >
+                      <FiSend />
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center text-gray-500">
+                  <FiMessageSquare className="mx-auto text-6xl mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">Select a conversation</h3>
+                  <p>Choose a conversation from the list to start messaging</p>
+                </div>
+              </div>
             )}
           </div>
-        </aside>
-
-        {/* Fixed width chat window - won't change with content */}
-        <section className="flex-1 bg-white rounded-lg shadow-md flex flex-col h-[calc(100vh-120px)] ml-4">
-          {activeChat ? (
-            <>
-              {/* Chat Header */}
-              <div className="border-b px-6 py-4 flex justify-between items-center sticky top-0 bg-white z-10">
-                <div className="flex items-center gap-3">
-                  <div className="relative flex-shrink-0">
-                    <img
-                      src={activeChat.avatar}
-                      alt={activeChat.name}
-                      className="h-10 w-10 rounded-full object-cover"
-                    />
-                    {activeChat.online && (
-                      <span className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border-2 border-white"></span>
-                    )}
-                  </div>
-                  <div className="min-w-0 max-w-[200px]">
-                    <h3 className="font-semibold text-base truncate">{activeChat.name}</h3>
-                    <p className="text-xs text-gray-500 truncate">{activeChat.role}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <button className="p-2 text-gray-500 rounded-full hover:bg-gray-100" title="Info">
-                    <FiInfo size={18} />
-                  </button>
-                  <button className="p-2 text-gray-500 rounded-full hover:bg-gray-100" title="More">
-                    <FiMoreVertical size={18} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Chat Body */}
-              <div ref={chatBodyRef} className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50">
-                {activeChat.chat.map((msg) => (
-                  <div 
-                    key={msg.id} 
-                    className={`flex items-start gap-3 ${msg.isSelf ? 'ml-auto flex-row-reverse' : ''}`}
-                    style={{ maxWidth: '70%' }}
-                  >
-                    <img 
-                      src={msg.avatar} 
-                      alt={msg.sender} 
-                      className="w-8 h-8 rounded-full object-cover flex-shrink-0" 
-                    />
-                    <div className={`flex flex-col ${msg.isSelf ? 'items-end' : 'items-start'}`}>
-                      <div
-                        className={`px-4 py-3 rounded-2xl shadow-sm ${
-                          msg.isSelf ? 'bg-black text-white rounded-tr-none' : 'bg-white rounded-tl-none'
-                        }`}
-                      >
-                        <p className="text-sm break-words">{msg.message}</p>
-                      </div>
-                      <span className="text-xs text-gray-400 mt-1">{msg.time}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Message Input */}
-              <form onSubmit={handleSendMessage} className="border-t bg-white px-4 py-3 flex items-center gap-3">
-                <button 
-                  type="button" 
-                  className="p-2 text-gray-500 rounded-full hover:bg-gray-100 flex-shrink-0" 
-                  title="Add attachment"
-                >
-                  <FiPaperclip size={18} />
-                </button>
-
-                <input
-                  ref={messageInputRef}
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type your message..."
-                  className="flex-1 px-4 py-2 rounded-full border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black"
-                />
-
-                <button
-                  type="submit"
-                  disabled={!newMessage.trim()}
-                  className={`p-2 text-white bg-black rounded-full flex-shrink-0 ${
-                    !newMessage.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-800'
-                  }`}
-                  title="Send message"
-                >
-                  <FiSend size={18} />
-                </button>
-              </form>
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-gray-500">
-              <div className="mb-4 p-6 bg-gray-100 rounded-full">
-                <FiMessageSquare size={48} className="text-gray-400" />
-              </div>
-              <p className="text-lg font-medium">Select a conversation</p>
-              <p className="mt-2">Choose from your existing conversations or start a new one</p>
-              
-            </div>
-          )}
-        </section>
+        </div>
       </main>
 
       <Footer />
